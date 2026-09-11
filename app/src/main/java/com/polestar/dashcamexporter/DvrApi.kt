@@ -5,6 +5,9 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
+import java.net.CookieHandler
+import java.net.CookieManager
+import java.net.CookiePolicy
 import java.net.URI
 import java.net.URLEncoder
 import java.net.URL
@@ -180,6 +183,12 @@ class DvrApi(val base: String) {
         const val DEFAULT_BASE = "http://198.18.37.20"
         const val PAGE_SIZE = 50
         private const val MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+        init {
+            // The DVR can issue a short-lived session cookie before serving media ranges.
+            // Keep it for subsequent status/list/range requests just like the OEM browser does.
+            if (CookieHandler.getDefault() == null)
+                CookieHandler.setDefault(CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER))
+        }
         fun connection(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 8_000
             readTimeout = 15_000

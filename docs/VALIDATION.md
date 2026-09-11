@@ -2,13 +2,13 @@
 
 검증일: 2026-09-11. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.1.4 보정: Polestar 4 실차 status 응답의 `usable:"yes"` 문자열 형식과 `mediaDirList`의 `Not in file-list mode`(403/409) 응답을 반영했습니다. 목록 모드는 기본으로 켜고 화면의 연결 설정 버튼은 숨겼습니다. 32 MiB Range 이어받기와 `/thumbnail` 캐시·표시를 추가했으며, bounded Range가 403이면 open-ended Range로 재시도합니다.
+0.1.5 보정: Polestar 4 실차 status 응답의 `usable:"yes"` 문자열 형식과 `mediaDirList`의 `Not in file-list mode`(403/409) 응답을 반영했습니다. 목록 모드는 기본으로 켜고 화면의 연결 설정 버튼은 숨겼습니다. 32 MiB Range 이어받기와 `/thumbnail` 캐시·표시를 추가했으며, bounded Range가 403이면 open-ended Range로 재시도하고 DVR 세션 쿠키를 유지합니다.
 
 ## 완료
 
 | 검증 | 결과 |
 | --- | --- |
-| `:app:testDebugUnitTest` | 18 tests, 0 failures, 0 errors |
+| `:app:testDebugUnitTest` | 20 tests, 0 failures, 0 errors |
 | `:app:lintDebug` | 통과. 신규 의존성 버전 안내 및 여유 공간 API 권고 경고만 남음 |
 | `:app:assembleDebug` | 성공 |
 | APK 서명 검사 | `apksigner verify --print-certs` 성공, Android Debug 서명 |
@@ -34,12 +34,12 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `PolestarDashcamExporter-v0.1.4-20260911-2301.apk`
+파일명: `PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
 
-- 크기: 20,603,289 bytes (약 19.7 MiB)
-- 프로젝트 사본: `artifacts/PolestarDashcamExporter-v0.1.4-20260911-2301.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.1.4-20260911-2301.apk`
-- SHA-256: `b1adc12c3e2372eb6272e1ddf2c3a3e14126ffc709e8bec3f3c05b961c792a60`
+- 크기: 20,603,601 bytes (약 19.7 MiB)
+- 프로젝트 사본: `artifacts/PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
+- SHA-256: `0aedf555e49b2963e7816c59028caf3c25b09f14412c6efc7389ebb6603282c9`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다.
 

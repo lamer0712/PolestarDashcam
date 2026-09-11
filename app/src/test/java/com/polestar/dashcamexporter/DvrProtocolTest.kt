@@ -14,6 +14,9 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.net.CookieHandler
+import java.net.CookieManager
+import java.net.CookiePolicy
 import java.nio.file.Files
 
 class DvrProtocolTest {
@@ -192,6 +195,32 @@ class DvrProtocolTest {
         val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
         assertArrayEquals(payload, saved.file.readBytes())
         assertTrue(requests.any { it.startsWith("GET /media/clip.mp4") })
+    }
+    @Test fun preservesDvrSessionCookieAcrossRangeRequests() {
+        val previous = CookieHandler.getDefault()
+        CookieHandler.setDefault(CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER))
+        try {
+            val payload = ByteArray(40 * 1024 * 1024 + 17) { (it * 7 % 251).toByte() }
+            var first = true
+            routes["/media/clip.mp4"] = { request ->
+                val range = request.getHeader("Range").orEmpty()
+                val start = range.substringAfter("bytes=", "0-").substringBefore("-").toIntOrNull() ?: 0
+                if (start > 0 && !request.getHeader("Cookie").orEmpty().contains("dvrSession=ok"))
+                    MockResponse().setResponseCode(403)
+                else {
+                    val end = minOf(payload.lastIndex, start + 32 * 1024 * 1024 - 1)
+                    MockResponse().setResponseCode(206)
+                        .setHeader("Content-Range", "bytes $start-$end/${payload.size}")
+                        .setHeader("Content-Length", (end - start + 1).toString())
+                        .apply { if (first) { first = false; setHeader("Set-Cookie", "dvrSession=ok; Path=/") } }
+                        .setBody(Buffer().write(payload, start, end - start + 1))
+                }
+            }
+            val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
+            assertArrayEquals(payload, saved.file.readBytes())
+        } finally {
+            CookieHandler.setDefault(previous)
+        }
     }
     @Test fun setModeSendsJsonBodyAndVerifiesReadback() {
         var recording = "normal"
