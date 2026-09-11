@@ -49,6 +49,23 @@ object StreamCopy {
         progress(total, expected)
         return total
     }
+
+    /** Copies one bounded HTTP range without waiting for the server to close a long response. */
+    fun copyChunk(input: InputStream, output: OutputStream, expected: Long, stop: StopToken,
+                  progress: (Long, Long) -> Unit): Long {
+        val buffer = ByteArray(128 * 1024)
+        var total = 0L
+        while (total < expected) {
+            stop.check()
+            val read = input.read(buffer, 0, minOf(buffer.size.toLong(), expected - total).toInt())
+            if (read < 0) throw IOException("파일 스트림이 중간에 끝났습니다: $total / $expected bytes")
+            if (read == 0) continue
+            output.write(buffer, 0, read)
+            total += read
+            progress(total, expected)
+        }
+        return total
+    }
 }
 
 class ThumbnailStore(private val root: File) {
@@ -102,6 +119,7 @@ class DownloadStore(private val root: File) {
         var expectedTotal = media.size
         var failuresWithoutProgress = 0
         var connectionCount = 0
+        var openEndedRange = false
         var completed = false
         try {
             val reserve = 32L * 1024 * 1024
@@ -118,8 +136,10 @@ class DownloadStore(private val root: File) {
                 val requestedEnd = if (expectedTotal > 0)
                     minOf(expectedTotal - 1, offset + RANGE_CHUNK_BYTES - 1) else null
                 val connection = DvrApi.connection(media.url)
-                if (offset > 0 || requestedEnd != null)
-                    connection.setRequestProperty("Range", "bytes=$offset-${requestedEnd ?: ""}")
+                if (offset > 0 || requestedEnd != null) {
+                    val end = if (openEndedRange) "" else requestedEnd?.toString().orEmpty()
+                    connection.setRequestProperty("Range", "bytes=$offset-$end")
+                }
                 val before = offset
                 try {
                     val code = connection.responseCode
@@ -142,19 +162,24 @@ class DownloadStore(private val root: File) {
                                 throw IOException("목록과 다운로드 파일 크기가 다릅니다. 새로고침 후 다시 시도하세요.")
                             expectedTotal = range.total
                         }
-                        range.last - range.first + 1
+                        val available = range.last - range.first + 1
+                        if (openEndedRange) minOf(available, RANGE_CHUNK_BYTES) else available
                     } else {
                         if (media.size > 0 && length > 0 && length != media.size)
                             throw IOException("목록과 다운로드 파일 크기가 다릅니다. 새로고침 후 다시 시도하세요.")
                         if (expectedTotal == 0L && length > 0) expectedTotal = length
                         if (length > 0) length else expectedTotal
                     }
-                    if (length > 0 && expectedResponse > 0 && length != expectedResponse)
+                    if (length > 0 && expectedResponse > 0 && !openEndedRange && length != expectedResponse)
                         throw IOException("DVR 구간 응답 크기가 요청과 다릅니다.")
 
                     connection.inputStream.use { input ->
                         FileOutputStream(partial, offset > 0).use { output ->
-                            StreamCopy.copy(input, output, expectedResponse, stop) { done, _ ->
+                            if (openEndedRange && code == HttpURLConnection.HTTP_PARTIAL)
+                                StreamCopy.copyChunk(input, output, expectedResponse, stop) { done, _ ->
+                                    progress(offset + done, expectedTotal)
+                                }
+                            else StreamCopy.copy(input, output, expectedResponse, stop) { done, _ ->
                                 progress(offset + done, expectedTotal)
                             }
                             output.fd.sync()
@@ -166,6 +191,12 @@ class DownloadStore(private val root: File) {
                 } catch (e: UserCancelledException) {
                     throw e
                 } catch (e: IOException) {
+                    if (!openEndedRange && e.message?.contains("HTTP 403") == true) {
+                        // Some DVR firmware rejects bounded ranges but accepts bytes=start-.
+                        openEndedRange = true
+                        failuresWithoutProgress = 0
+                        continue
+                    }
                     if (partial.length() > before) {
                         failuresWithoutProgress = 0
                         continue

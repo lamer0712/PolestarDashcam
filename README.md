@@ -32,7 +32,7 @@ USB는 일반 파일 경로를 직접 탐색하지 않고 Android Storage Access
 - 한 파일 실패 시 나머지 선택 파일은 계속 처리하며 파일별 오류를 표시합니다. 취소 시 이미 완료된 파일은 보관합니다. 취소는 현재 네트워크 읽기가 끝나거나 타임아웃된 뒤 처리되므로 즉시 끝나지 않을 수 있습니다.
 - 목록을 조회할 때 DVR `/thumbnail` 응답을 캐시해 각 항목 왼쪽에 썸네일을 표시합니다. 썸네일을 제공하지 않는 차량에서는 `미리보기` 자리표시자가 표시됩니다.
 - 큰 파일은 원본 그대로 내보냅니다. 재인코딩·분할·재생·DVR 원본 삭제 기능은 없습니다.
-- 앱 내부 저장본을 개별 삭제하는 UI는 0.1.3에 없습니다. 내보낸 뒤 필요하면 Android 앱 설정에서 저장공간을 관리하세요.
+- 앱 내부 저장본을 개별 삭제하는 UI는 0.1.4에 없습니다. 내보낸 뒤 필요하면 Android 앱 설정에서 저장공간을 관리하세요.
 
 ## 빌드 / 설치
 
@@ -47,9 +47,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.polestar.dashcamexporter/.MainActivity
 ```
 
-Android 11(API 30) 이상이며 target SDK는 35입니다. 패키지는 `com.polestar.dashcamexporter`, 표시 이름은 **Dashcam Exporter**, 버전은 **0.1.3**입니다. Debug 서명 APK로 제공하며 OEM 시스템 UID나 OEM 서명을 사용하지 않습니다. 자동차 런처의 노출 및 일반 앱 설치 허용 여부는 차량 정책에 따릅니다.
+Android 11(API 30) 이상이며 target SDK는 35입니다. 패키지는 `com.polestar.dashcamexporter`, 표시 이름은 **Dashcam Exporter**, 버전은 **0.1.4**입니다. Debug 서명 APK로 제공하며 OEM 시스템 UID나 OEM 서명을 사용하지 않습니다. 자동차 런처의 노출 및 일반 앱 설치 허용 여부는 차량 정책에 따릅니다.
 
-0.1.1부터 기본 조회 모드에서는 차량별 `status` JSON에 `usable`/`recording` 필드가 없어도 HTTP/JSON 응답 성공으로 연결을 확인하고 실제 `mediaDirList`를 계속 호출합니다. 상태 필드는 root 또는 `state`, `status`, `data`, `result` 객체에 있을 때 표시합니다. 목록 모드를 직접 변경할 때만 안전한 복귀를 위해 `usable`/`recording`을 필수로 확인합니다. 0.1.2부터 `mediaDirList`가 `Not in file-list mode`(403/409)로 응답하면 목록 모드로 자동 재시도하고 완료 후 `normal` 복귀를 확인합니다. 0.1.3부터 목록 항목에 DVR 썸네일을 표시하고 60 MiB를 넘는 파일도 Range 이어받기로 재시도합니다.
+0.1.1부터 기본 조회 모드에서는 차량별 `status` JSON에 `usable`/`recording` 필드가 없어도 HTTP/JSON 응답 성공으로 연결을 확인하고 실제 `mediaDirList`를 계속 호출합니다. 상태 필드는 root 또는 `state`, `status`, `data`, `result` 객체에 있을 때 표시합니다. 목록 모드를 직접 변경할 때만 안전한 복귀를 위해 `usable`/`recording`을 필수로 확인합니다. 0.1.2부터 `mediaDirList`가 `Not in file-list mode`(403/409)로 응답하면 목록 모드로 자동 재시도하고 완료 후 `normal` 복귀를 확인합니다. 0.1.3부터 목록 항목에 DVR 썸네일을 표시하고 60 MiB를 넘는 파일도 Range 이어받기로 재시도합니다. 0.1.4부터 DVR이 bounded Range를 403으로 거부하면 open-ended Range로 자동 재시도합니다.
 
 필수 권한은 인터넷·foreground data sync·wake lock입니다. Android 13 이상에서는 전송 알림 권한을 요청합니다. 알림을 거부해도 전송 자체는 가능합니다. 광범위 저장소 권한, 카메라, 위치, 차량 vendor 권한은 요청하지 않습니다.
 
