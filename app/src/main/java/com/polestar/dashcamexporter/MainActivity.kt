@@ -12,8 +12,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
@@ -61,6 +63,10 @@ class MainActivity : ComponentActivity() {
                 ExportScreen(controller, onDownload = {
                     requestNotifications()
                     controller.download(it)
+                }, onOpen = { file ->
+                    try { startActivity(Intent.createChooser(ShareFiles.viewIntent(this, file), "영상 재생")) }
+                    catch (e: ActivityNotFoundException) { controller.message("이 파일을 재생할 수 있는 앱이 없습니다.") }
+                    catch (e: Exception) { controller.message(e.message.orEmpty()) }
                 }, onShare = { files ->
                     try { startActivity(Intent.createChooser(ShareFiles.intent(this, files), "공유 / 메일로 보내기")) }
                     catch (e: ActivityNotFoundException) { controller.message("파일 공유를 처리할 앱이 없습니다. 폴더 저장을 이용하세요.") }
@@ -80,6 +86,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        controller.autoConnect()
+    }
+
     private fun requestNotifications() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -93,8 +104,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedia>) -> Unit,
-                         onShare: (List<SavedMedia>) -> Unit, onFolder: (List<SavedMedia>) -> Unit) {
+                         onOpen: (SavedMedia) -> Unit, onShare: (List<SavedMedia>) -> Unit,
+                         onFolder: (List<SavedMedia>) -> Unit) {
     val state by controller.state.collectAsState()
+    LaunchedEffect(Unit) { controller.autoConnect() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     val local = tab == 3
@@ -112,16 +125,16 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     Text("${selection.size}개 선택", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                     if (local) {
                         OutlinedButton(onClick = { onFolder(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("USB / 폴더 저장") }
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("USB 저장") }
                         Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("공유 / 메일") }
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("공유") }
                     } else {
                         Button(onClick = { onDownload(remote.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy && state.recoveryBase == null,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("선택 다운로드") }
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("선택 항목 저장") }
                     }
                 }
-                Text(if (local) "메일 앱이 설치되어 있으면 공유 시트에서 선택하세요. USB는 폴더 선택기에 표시되어야 합니다."
-                    else "다운로드한 파일은 ‘저장됨’에서 공유하거나 USB에 복사할 수 있습니다.", fontSize = 12.sp,
+                Text(if (local) "파일을 눌러 재생하거나 공유할 수 있습니다. USB 저장도 지원합니다."
+                    else "선택한 파일은 기기의 갤러리 폴더에 자동 저장됩니다.", fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -132,8 +145,11 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     Text("DASHCAM / EXPORT", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, letterSpacing = 2.sp)
                     Text("대시캠 파일 내보내기", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 }
-                Button(onClick = { selected = emptyList(); controller.refresh() }, enabled = !state.busy && state.recoveryBase == null,
-                    modifier = Modifier.heightIn(min = 48.dp)) { Text(if (state.connected) "새로고침" else "DVR 연결") }
+                Surface(color = if (state.connected) Color(0xFF203F3B) else MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(20.dp)) {
+                    Text(if (state.busy) "연결 중…" else if (state.connected) "연결됨" else "자동 연결 대기",
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), fontSize = 12.sp)
+                }
             }
             Text("주차 중에 사용하세요 · ${state.dvrStatus}", fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -160,6 +176,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.padding(top = 8.dp)) {
                     Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(state.message, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 13.sp, maxLines = 5)
+                        if (!state.busy && !state.connected && state.recoveryBase == null)
+                            TextButton(onClick = controller::refresh) { Text("다시 연결") }
                         TextButton(onClick = { controller.message("") }) { Text("닫기") }
                     }
                 }
@@ -178,36 +196,39 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 TextButton(onClick = { selected = if (selection.size == keys.size) arrayListOf() else ArrayList(keys) },
                     enabled = keys.isNotEmpty() && !state.busy) { Text(if (selection.isNotEmpty() && selection.size == keys.size) "선택 해제" else "전체 선택") }
             }
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+            LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 280.dp),
+                modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (local) {
-                    items(state.saved, key = { it.key }) { item ->
+                    gridItems(state.saved, key = { it.key }) { item ->
                         MediaRow(item.name, detail = "${item.kind.label} · ${formatBytes(item.size)} · 저장 완료",
-                            selected = item.key in selection, enabled = !state.busy, toggle = { toggle(item.key) })
+                            selected = item.key in selection, enabled = !state.busy, toggle = { toggle(item.key) },
+                            open = { onOpen(item) })
                     }
                 } else {
-                    items(remote, key = { it.key }) { item ->
+                    gridItems(remote, key = { it.key }) { item ->
                         MediaRow(item.name, state.thumbnails[item.key], listOfNotNull(formatTimestamp(item.dateTime),
                             if (item.size > 0) formatBytes(item.size) else "크기 미상").joinToString(" · "),
                             item.key in selection, !state.busy, { toggle(item.key) })
                     }
-                    if (page?.error != null) item {
+                    if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
                     }
-                    if (page != null && (page.hasMore || page.error != null) && state.directories.any { it.kind == kind }) item {
+                    if (page != null && (page.hasMore || page.error != null) && state.directories.any { it.kind == kind }) item(span = { GridItemSpan(maxLineSpan) }) {
                         OutlinedButton(onClick = { kind?.let(controller::more) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                             Text(if (page.error != null) "목록 재시도" else "다음 목록 불러오기")
                         }
                     }
                 }
-                if (keys.isEmpty() && !state.busy) item {
+                if (keys.isEmpty() && !state.busy) item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (local) "아직 다운로드한 파일이 없습니다" else if (state.connected) "표시할 파일이 없습니다" else "차량의 대시캠 파일을 가져오세요",
                             fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(12.dp))
                         Text(if (local) "일반·긴급·사진 탭에서 파일을 선택하고 다운로드하세요."
                             else if (state.connected) "다른 분류를 선택하거나 목록을 새로고침하세요."
-                            else "DVR 연결 → 파일 선택 → 다운로드 → 공유", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            else "자동 연결 후 파일을 선택해 저장하거나 재생하세요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -216,7 +237,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
 }
 
 @Composable
-private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String, selected: Boolean, enabled: Boolean, toggle: () -> Unit) {
+private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String, selected: Boolean,
+                     enabled: Boolean, toggle: () -> Unit, open: (() -> Unit)? = null) {
     Surface(color = if (selected) Color(0xFF203F3B) else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = toggle)) {
         Row(Modifier.padding(12.dp).heightIn(min = 58.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -225,6 +247,8 @@ private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(name, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(detail, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (open != null) TextButton(onClick = open, contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.heightIn(min = 32.dp)) { Text("▶ 재생") }
             }
         }
     }

@@ -7,6 +7,14 @@ import androidx.core.content.FileProvider
 import java.io.IOException
 
 object ShareFiles {
+    fun viewIntent(context: Context, file: SavedMedia): Intent {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file.file)
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, file.mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
     fun intent(context: Context, files: List<SavedMedia>): Intent {
         require(files.isNotEmpty())
         if (files.size > 50) throw IOException("한 번에 최대 50개까지 공유할 수 있습니다.")

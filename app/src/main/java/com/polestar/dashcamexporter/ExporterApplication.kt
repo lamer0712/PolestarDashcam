@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,6 +64,13 @@ class ExportController(private val app: Application) {
         scope.launch {
             val saved = withContext(Dispatchers.IO) { store.cleanPartialFiles(); store.saved() }
             mutable.update { it.copy(saved = saved, busy = false, progressText = "") }
+        }
+    }
+
+    fun autoConnect() {
+        scope.launch {
+            while (state.value.busy) delay(50)
+            if (!state.value.connected && state.value.recoveryBase == null) refresh()
         }
     }
 
@@ -281,7 +289,10 @@ class ExportController(private val app: Application) {
             val api = DvrApi(config.base)
             sessionWithAutomaticMode(api, config.useListMode) {
                 batch(items, "다운로드") { item, index ->
-                    store.download(item, stop) { done, total -> progress(index, items.size, item.name, done, total) }
+                    val saved = store.download(item, stop) { done, total -> progress(index, items.size, item.name, done, total) }
+                    PublicMediaStore.publish(app, saved, stop) { done, total ->
+                        progress(index, items.size, "공용 폴더 저장 · ${item.name}", done, total)
+                    }
                     mutable.update { it.copy(saved = store.saved()) }
                 }
             }

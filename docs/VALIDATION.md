@@ -2,7 +2,7 @@
 
 검증일: 2026-09-11. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.1.5 보정: Polestar 4 실차 status 응답의 `usable:"yes"` 문자열 형식과 `mediaDirList`의 `Not in file-list mode`(403/409) 응답을 반영했습니다. 목록 모드는 기본으로 켜고 화면의 연결 설정 버튼은 숨겼습니다. 32 MiB Range 이어받기와 `/thumbnail` 캐시·표시를 추가했으며, bounded Range가 403이면 open-ended Range로 재시도하고 DVR 세션 쿠키를 유지합니다.
+0.2.0 보정: 앱 실행 시 DVR에 자동 연결하고 썸네일 갤러리 UI에서 선택 파일을 공용 미디어 폴더에 자동 게시하도록 변경했습니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
 
 ## 완료
 
@@ -34,12 +34,12 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
+파일명: `PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
 
-- 크기: 20,603,601 bytes (약 19.7 MiB)
-- 프로젝트 사본: `artifacts/PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.1.5-20260911-2303.apk`
-- SHA-256: `0aedf555e49b2963e7816c59028caf3c25b09f14412c6efc7389ebb6603282c9`
+- 크기: 20,879,178 bytes (약 19.9 MiB)
+- 프로젝트 사본: `artifacts/PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
+- SHA-256: `c283ce6a13b4e3f57b07400dffcbf8ce28953df2550d2b43122b5a5bfc077026`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다.
 
