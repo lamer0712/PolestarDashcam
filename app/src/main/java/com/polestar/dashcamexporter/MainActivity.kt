@@ -172,6 +172,14 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
     var fullScreenPhoto by remember { mutableStateOf<SavedMedia?>(null) }
+    var wasBusy by remember { mutableStateOf(false) }
+    LaunchedEffect(state.busy) {
+        if (wasBusy && !state.busy) {
+            selected = emptyList()
+            editMode = false
+        }
+        wasBusy = state.busy
+    }
     val currentAlbum = album
     val inDetail = currentAlbum != null || savedOpen
     val local = savedOpen
@@ -222,8 +230,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     } else {
                         Button(onClick = {
                             onDownload(remote.filter { it.key in selection })
-                            selected = emptyList()
-                            editMode = false
                         }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("Export") }
                     }
