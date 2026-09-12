@@ -142,7 +142,10 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     val remote = page?.entries.orEmpty()
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     val selection = selected.filter { it in keys }.toSet()
-    fun toggle(key: String) { selected = ArrayList(if (key in selection) selection - key else selection + key) }
+    fun toggle(key: String) {
+        val current = selected.filter { it in keys }.toSet()
+        selected = ArrayList(if (key in current) current - key else current + key)
+    }
     fun leaveDetail() {
         album = null
         savedOpen = false
@@ -385,8 +388,7 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, p
     val canPreview = item.kind != MediaKind.PHOTO
     Column(Modifier.clickable(onClick = { if (editMode || !canPreview) onToggle() else onPreview() })) {
         SelectableThumbnail(path = thumbnailPath, selected = selected, playing = playing, videoUrl = if (playing) item.url else null) {
-            if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
-            else if (canPreview && !playing) Surface(
+            if (!editMode && canPreview && !playing) Surface(
                 color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
                 modifier = Modifier.align(Alignment.Center).size(56.dp)
             ) { Box(contentAlignment = Alignment.Center) { Text("▶", color = Color.White, fontSize = 28.sp) } }
@@ -401,9 +403,7 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, p
 @Composable
 private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
     Column(Modifier.clickable(onClick = if (editMode) onToggle else onOpen)) {
-        SelectableThumbnail(path = null, selected = selected) {
-            if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
-        }
+        SelectableThumbnail(path = null, selected = selected)
         Text(item.name, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
@@ -428,18 +428,7 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
                     Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
                 }
             }
-            if (selected) {
-                Box(Modifier.matchParentSize().background(Color(0x66000000)))
-                Surface(
-                    color = Color(0xFFFF7A00),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("✓", color = Color.Black, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            if (selected) Box(Modifier.matchParentSize().background(Color(0x33000000)))
             overlay()
         }
     }
