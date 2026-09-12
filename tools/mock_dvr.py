@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""OEM-schema mock DVR. Synthetic video bytes test transport, not video playback.
-Only binds loopback. Use adb reverse tcp:8765 tcp:8765 on an emulator.
+"""OEM-schema mock DVR.
+
+By default it serves deterministic transport-test bytes as video/mp4. Pass
+--video-mp4 PATH to serve a real playable MP4 for UI playback tests. Only binds
+loopback. Use adb reverse tcp:8765 tcp:8765 on an emulator.
 """
 import argparse
 import base64
@@ -11,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
 VIDEO = bytes(range(256)) * 8192
+VIDEO_IS_PLAYABLE = False
 PHOTO = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=")
 STATE = {"recording": "normal", "requireMode": False, "failRestore": False, "delay": 0, "failCategory": "", "posts": []}
 
@@ -56,13 +60,30 @@ class Handler(BaseHTTPRequestHandler):
             if kind not in ("normal", "emergency", "photo") or name not in {x["name"] for x in listing(kind)}:
                 return self.json({"error": 404, "message": "missing"}, 404)
             payload = PHOTO if kind == "photo" else VIDEO
-            self.send_response(200)
-            self.send_header("Content-Type", "image/png" if kind == "photo" else "video/mp4")
-            self.send_header("Content-Length", str(len(payload)))
+            content_type = "image/png" if kind == "photo" else "video/mp4"
+            range_header = self.headers.get("Range")
+            start, end = 0, len(payload) - 1
+            partial = False
+            if range_header and range_header.startswith("bytes="):
+                spec = range_header.removeprefix("bytes=")
+                first, _, last = spec.partition("-")
+                if first.isdigit():
+                    start = min(int(first), len(payload))
+                    if last.isdigit():
+                        end = min(int(last), len(payload) - 1)
+                    partial = True
+            status = 206 if partial else 200
+            body = payload[start:end + 1] if start <= end else b""
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(len(body)))
+            if partial:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{len(payload)}")
             self.end_headers()
             try:
-                for offset in range(0, len(payload), 16384):
-                    self.wfile.write(payload[offset:offset + 16384])
+                for offset in range(0, len(body), 16384):
+                    self.wfile.write(body[offset:offset + 16384])
                     self.wfile.flush()
                     time.sleep(STATE["delay"])
             except (BrokenPipeError, ConnectionResetError):
@@ -91,6 +112,12 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--video-mp4", help="Optional playable MP4 to serve for video entries")
     args = parser.parse_args()
-    print(f"Mock DVR on http://127.0.0.1:{args.port}; synthetic video SHA256={hashlib.sha256(VIDEO).hexdigest()}", flush=True)
+    if args.video_mp4:
+        with open(args.video_mp4, "rb") as handle:
+            VIDEO = handle.read()
+        VIDEO_IS_PLAYABLE = True
+    kind = "playable MP4" if VIDEO_IS_PLAYABLE else "synthetic video bytes"
+    print(f"Mock DVR on http://127.0.0.1:{args.port}; {kind} SHA256={hashlib.sha256(VIDEO).hexdigest()}", flush=True)
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.view.ViewGroup
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -33,9 +34,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import androidx.media3.common.util.UnstableApi
 import android.widget.Toast
-import android.widget.VideoView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -421,26 +429,64 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
     }
 }
 
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun InlineVideo(url: String) {
-    AndroidView(
-        factory = { context ->
-            VideoView(context).apply {
-                setVideoURI(Uri.parse(url))
-                setOnPreparedListener { player ->
-                    player.isLooping = true
-                    start()
+    val context = LocalContext.current
+    var failureText by remember(url) { mutableStateOf<String?>(null) }
+    var ready by remember(url) { mutableStateOf(false) }
+    val player = remember(url) {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ONE
+            playWhenReady = true
+            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    ready = playbackState == Player.STATE_READY
                 }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    failureText = error.errorCodeName
+                }
+            })
+            prepare()
+        }
+    }
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+    Box(Modifier.size(147.dp)) {
+        AndroidView(
+            factory = { viewContext ->
+                PlayerView(viewContext).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                    this.player = player
+                }
+            },
+            update = { view ->
+                if (view.player !== player) view.player = player
+                if (!player.isPlaying && failureText == null) player.play()
+            },
+            modifier = Modifier.matchParentSize()
+        )
+        if (!ready && failureText == null) {
+            Box(Modifier.matchParentSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFFFF7A00), strokeWidth = 2.dp, modifier = Modifier.size(34.dp))
             }
-        },
-        update = { view ->
-            if (!view.isPlaying) {
-                view.setVideoURI(Uri.parse(url))
-                view.start()
+        }
+        failureText?.let { message ->
+            Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
+                Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
             }
-        },
-        modifier = Modifier.size(147.dp)
-    )
+        }
+    }
 }
 
 @Composable

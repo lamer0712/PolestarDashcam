@@ -2,6 +2,8 @@
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
+0.4.10 보정: 썸네일 인라인 재생을 Android 기본 VideoView에서 AndroidX Media3 ExoPlayer로 변경했습니다. 재생 준비 중/실패 상태를 타일에 표시해 검정 화면만 남지 않게 했고, mock DVR은 실제 MP4 및 HTTP Range 응답을 지원합니다.
+
 0.4.9 보정: 원 갤러리 APK에서 확인한 대용량 읽기 방식에 맞춰 DVR 다운로드 Range를 `bytes=offset-` open-ended 형태로만 보내도록 변경했습니다. 앱 내부에서는 32 MiB 단위로 읽고 재연결해 60 MiB 이상 파일의 스트림 끊김과 bounded Range 403을 피합니다.
 
 0.4.8 보정: 일반 상태/오류 메시지와 DVR 녹화 복귀 경고는 화면을 차지하지 않는 Toast로 표시하도록 변경했습니다.  헤더 구분선 아래 진행률 표시를 제거하고 전체 화면 하단 한 줄 바에서 진행 상태/취소 또는 선택 수/Export 버튼을 보여주도록 변경했습니다. 선택 수 텍스트는 밝은 색으로 고정했습니다.  런처가 Activity label을 직접 읽는 경우까지 맞도록 MainActivity label도 Gallery+로 명시했습니다. 앱 표시 이름과 알림 제목을 영어 Gallery+로 바꾸고, 홈 상단 제목을 Gallery+로 변경했습니다. 구분선 아래 일반 메시지 박스를 제거했습니다.  편집 모드 진입 시 전체 선택 버튼 때문에 영상 그리드가 아래로 움직이지 않도록 상단 행 높이를 고정했습니다. Saved 화면은 설정에서 지정한 SAF 폴더의 실제 문서 목록을 읽어 표시하도록 변경했습니다. 선택 상태는 주황색 테두리만 남기고 우상단 체크 배지를 제거했습니다. 편집 모드에서는 체크박스 중복 토글을 없애고 타일 클릭만으로 다중 선택이 안정적으로 동작하게 했습니다. 영상 타일을 일반 모드에서 누르면 썸네일 자리에서 바로 재생합니다. 편집 모드에서는 같은 타일 클릭이 선택으로 동작해 Export 흐름을 유지합니다. 앱 이름은 Gallery+로 변경하고 홈 화면 보조 문구와 연결 상태 캡슐을 제거했습니다. 폴더 설정은 톱니 아이콘으로 바꾸고, 저장 폴더가 없으면 최초 실행 시 폴더 선택기를 띄웁니다. 선택된 영상·사진은 주황색 테두리와 체크 배지로 더 명확히 표시합니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
@@ -12,7 +14,7 @@
 | --- | --- |
 | `:app:testDebugUnitTest` | 20 tests, 0 failures, 0 errors |
 | `:app:lintDebug` | 통과. 신규 의존성 버전 안내 및 여유 공간 API 권고 경고만 남음 |
-| `:app:assembleDebug` | 성공, versionName 0.4.9 / versionCode 18 |
+| `:app:assembleDebug` | 성공, versionName 0.4.10 / versionCode 19 |
 | APK 서명 검사 | `apksigner verify --print-certs` 성공, Android Debug 서명 |
 | AAOS API 35 에뮬레이터 설치/실행 | 성공, 운전자 user 10, 1920×1200 |
 | 계측 테스트 | 8 tests 모두 통과 |
@@ -23,7 +25,7 @@
 | iCloud Drive APK 복사 | 원본/프로젝트 artifacts/iCloud 복사본 SHA-256 일치 |
 | 사용자 지정 폴더 설정 | SAF 폴더 URI를 영속 권한으로 저장하고 다음 다운로드부터 자동 복사 |
 | 갤러리+ UI 스크린샷 | AAOS API 35 에뮬레이터에서 앨범 홈과 Loop videos 세부 목록 캡처 |
-| 인라인 영상 재생 | Android 기본 VideoView로 DVR 영상 URL을 썸네일 영역에서 재생하도록 컴파일·계측 흐름 검증 |
+| 인라인 재생 ExoPlayer | AndroidX Media3 ExoPlayer로 DVR URL을 썸네일 영역에서 재생, 실제 MP4 mock DVR에서 프레임 표시 확인 |
 | 편집 모드 다중 선택 | 체크박스 중복 토글 제거, 타일 클릭 기반 다중 선택 흐름 계측 테스트 통과 |
 | 편집 모드 위치 안정화 | 전체 선택 버튼 영역 높이를 고정해 일반/편집 모드 전환 시 그리드 시작 위치 유지 |
 | Saved 폴더 동기화 | 지정 SAF 폴더가 있으면 내부 저장소 대신 해당 폴더의 문서 목록을 표시 |
@@ -46,14 +48,14 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `GalleryPlus-v0.4.9-20260912-1950.apk`
+파일명: `GalleryPlus-v0.4.10-20260912-2003.apk`
 
-- 크기: 20,678,061 bytes (약 19.7 MiB)
-- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.9-20260912-1950.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.9-20260912-1950.apk`
+- 크기: 27,971,142 bytes (약 26.7 MiB)
+- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.10-20260912-2003.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.10-20260912-2003.apk`
 - 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-latest.apk`
 - 호환 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
-- SHA-256: `452ca8328d4dc4ef68553e5d301764db9eff6cc584e90df91a53f3eb4dc1d43a`
+- SHA-256: `ea8853441651d8f3c52d3ac4f20c4671d3a466bbee2aa12bf4577fbf3f8e058b`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다. 앱 표시 이름과 다운로드 알림 제목은 `Gallery+`입니다.
 
@@ -74,6 +76,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 - [갤러리+ 앨범 홈](screenshots/06-gallery-plus-home.png)
 - [갤러리+ Loop videos 세부 목록](screenshots/07-gallery-plus-detail.png)
 - [하단 한 줄 Export 바](screenshots/15-bottom-export-bar-one-line.png)
+- [ExoPlayer 인라인 재생](screenshots/23-exoplayer-playing-user10.png)
 
 빌드 및 테스트 로그 사본은 `artifacts/`에 보관합니다.
 
@@ -83,3 +86,11 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 - `DvrHttpHelper` lists and status endpoints use Retrofit, while direct `downloadFile()` is a streamed body and playback uses the video cache/proxy path.
 - Updated Gallery+ downloads to send only open-ended Range requests for known-size DVR media while locally limiting each read to 32 MiB before reconnecting.
 - Unit regression `usesOemStyleOpenEndedRangesForLargeDownloads` verifies a >32 MiB file succeeds when bounded ranges would receive HTTP 403, and `retriesA60MbPlusFileAfterUnexpectedEndOfStream` verifies all retry ranges remain open-ended.
+
+
+## 2026-09-12 v0.4.10 inline playback validation
+
+- OEM Gallery uses a dedicated player stack (`ecarx.gallery.videoview`, Doikki/Ijk classes) rather than Android platform `VideoView`.
+- Replaced inline tile playback with AndroidX Media3 ExoPlayer and added loading/error overlays.
+- Mock DVR now supports `--video-mp4` and HTTP `Range` responses so emulator playback can be validated with a real MP4 instead of synthetic transport bytes.
+- Emulator user 10 playback check succeeded with `tools/mock_dvr.py --port 8765 --video-mp4 /tmp/galleryplus-playable-test.m4v`; screenshot: `screenshots/23-exoplayer-playing-user10.png`.
