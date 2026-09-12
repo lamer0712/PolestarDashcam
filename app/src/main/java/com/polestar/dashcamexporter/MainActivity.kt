@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -218,7 +220,11 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("공유") }
                     } else {
-                        Button(onClick = { onDownload(remote.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
+                        Button(onClick = {
+                            onDownload(remote.filter { it.key in selection })
+                            selected = emptyList()
+                            editMode = false
+                        }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("Export") }
                     }
                 }
@@ -254,6 +260,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         editMode = editMode,
                         previewKey = previewKey,
                         onToggle = ::toggle,
+                        onLongPress = { key -> editMode = true; previewKey = null; if (key !in selection) selected = ArrayList(selected + key) },
                         onPreview = { key ->
                             if (previewKey == key) {
                                 previewKey = null
@@ -390,7 +397,7 @@ private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Mod
 @Composable
 private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
                        remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean, previewKey: String?,
-                       onToggle: (String) -> Unit, onPreview: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
+                       onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
@@ -416,7 +423,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             if (local) {
                 gridItems(state.saved, key = { it.key }) { item ->
                     SavedTile(item, selected = item.key in selection, editMode = editMode,
-                        onToggle = { onToggle(item.key) }, onOpen = { onOpen(item) })
+                        onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onOpen = { onOpen(item) })
                 }
             } else {
                 remote.groupBy { dateGroupLabel(it.dateTime) }.forEach { (date, items) ->
@@ -428,7 +435,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                     gridItems(items, key = { it.key }) { item ->
                         DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
                             playing = previewKey == item.key, editMode = editMode,
-                            onToggle = { onToggle(item.key) }, onPreview = { onPreview(item.key) })
+                            onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onPreview = { onPreview(item.key) })
                     }
                 }
                 if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -452,11 +459,12 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, playing: Boolean, editMode: Boolean,
-                    onToggle: () -> Unit, onPreview: () -> Unit) {
+                    onToggle: () -> Unit, onLongPress: () -> Unit, onPreview: () -> Unit) {
     val canPreview = item.kind != MediaKind.PHOTO
-    Column(Modifier.clickable(onClick = { if (editMode || !canPreview) onToggle() else onPreview() })) {
+    Column(Modifier.combinedClickable(onClick = { if (editMode || !canPreview) onToggle() else onPreview() }, onLongClick = onLongPress)) {
         SelectableThumbnail(path = thumbnailPath, selected = selected, playing = playing, videoUrl = if (playing) item.url else null) {
             if (!editMode && canPreview && !playing) Surface(
                 color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
@@ -475,15 +483,16 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, p
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
+private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onLongPress: () -> Unit, onOpen: () -> Unit) {
     val context = LocalContext.current
     val thumbnail by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, item.key) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             savedThumbnail(context, item)?.asImageBitmap()
         }
     }
-    Column(Modifier.clickable(onClick = if (editMode) onToggle else onOpen)) {
+    Column(Modifier.combinedClickable(onClick = { if (editMode) onToggle() else onOpen() }, onLongClick = onLongPress)) {
         SelectableThumbnail(path = null, selected = selected, thumbnail = thumbnail)
         Text(item.name, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
