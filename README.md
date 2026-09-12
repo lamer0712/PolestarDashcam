@@ -189,3 +189,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.32
 
 - Files larger than 60 MiB now begin with the OEM-style direct stream, then resume from the received offset in app-controlled 32 MiB chunks using open-ended Range requests.
+
+### 2026-09-13 v0.4.33
+
+- DVR inline playback now enters and keeps `in-file-list` mode for the duration of the detail view, then restores `normal` when leaving it.

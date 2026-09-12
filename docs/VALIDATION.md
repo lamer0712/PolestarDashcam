@@ -174,3 +174,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.32 large-file chunk validation
 
 - Files above 60 MiB start with a direct stream and switch to 32 MiB local reads plus open-ended Range resume after an early EOF.
+
+## 2026-09-13 v0.4.33 playback DVR-mode validation
+
+- Inline playback enters `in-file-list` before opening the DVR URL and restores `normal` when leaving the detail view.

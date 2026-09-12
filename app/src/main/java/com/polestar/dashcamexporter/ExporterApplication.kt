@@ -65,6 +65,7 @@ class ExportController(private val app: Application) {
     val appContext: Application get() = app
     private var stop = StopToken()
     private var pendingTransfer: (() -> String)? = null
+    private var playbackBase: String? = null
 
     init {
         scope.launch {
@@ -143,6 +144,32 @@ class ExportController(private val app: Application) {
     fun reportError(text: String) {
         preferences.edit().putString("lastError", text).apply()
         mutable.update { it.copy(message = text, errorMessage = text) }
+    }
+
+    fun enterPlaybackMode(onReady: () -> Unit) {
+        val config = state.value
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val api = DvrApi(config.base)
+                    val status = api.status()
+                    if (!status.usable) throw IOException("DVR 저장장치를 사용할 수 없습니다.")
+                    if (status.recording != "in-file-list") api.setMode("enter-file-list")
+                }
+                playbackBase = config.base
+                onReady()
+            } catch (e: Exception) {
+                reportError("재생 모드 전환 실패: ${e.message ?: "DVR 응답 없음"}")
+            }
+        }
+    }
+
+    fun exitPlaybackMode() {
+        val base = playbackBase ?: return
+        playbackBase = null
+        scope.launch(Dispatchers.IO) {
+            runCatching { DvrApi(base).setMode("normal") }
+        }
     }
 
     fun cancel() {

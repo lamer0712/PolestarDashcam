@@ -181,6 +181,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         selected = ArrayList(if (key in current) current - key else current + key)
     }
     fun leaveDetail() {
+        controller.exitPlaybackMode()
         album = null
         savedOpen = false
         editMode = false
@@ -252,7 +253,14 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         editMode = editMode,
                         previewKey = previewKey,
                         onToggle = ::toggle,
-                        onPreview = { previewKey = if (previewKey == it) null else it },
+                        onPreview = { key ->
+                            if (previewKey == key) {
+                                previewKey = null
+                                controller.exitPlaybackMode()
+                            } else {
+                                controller.enterPlaybackMode { previewKey = key }
+                            }
+                        },
                         onOpen = { file ->
                             if (file.mime.startsWith("video/")) fullScreenSaved = file else fullScreenPhoto = file
                         },
