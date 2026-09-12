@@ -57,5 +57,6 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 - [시작 화면](screenshots/01-start.png)
 - [SAF 폴더 복사 완료](screenshots/02-folder-export.png)
 - [공유 시트: 대상 앱 없음](screenshots/03-share-sheet.png)
+- [앨범 중심 화면과 자동 연결](screenshots/05-custom-folder-gallery.png)
 
 빌드 및 테스트 로그 사본은 `artifacts/`에 보관합니다.
