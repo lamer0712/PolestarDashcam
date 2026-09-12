@@ -173,6 +173,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
     var fullScreenPhoto by remember { mutableStateOf<SavedMedia?>(null) }
+    var fullScreenRemote by remember { mutableStateOf<DvrMedia?>(null) }
     var wasBusy by remember { mutableStateOf(false) }
     LaunchedEffect(state.busy) {
         if (wasBusy && !state.busy) {
@@ -283,13 +284,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         previewKey = previewKey,
                         onToggle = ::toggle,
                         onLongPress = { key -> editMode = true; previewKey = null; if (key !in selection) selected = ArrayList(selected + key) },
-                        onPreview = { key ->
-                            if (previewKey == key) {
-                                previewKey = null
-                                controller.exitPlaybackMode()
-                            } else {
-                                controller.enterPlaybackMode { previewKey = key }
-                            }
+                        onPreview = { item ->
+                            controller.enterPlaybackMode { fullScreenRemote = item }
                         },
                         onOpen = { file ->
                             if (file.mime.startsWith("video/")) fullScreenSaved = file else fullScreenPhoto = file
@@ -308,6 +304,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
     fullScreenPhoto?.let { file ->
         FullScreenPhoto(file = file, onDismiss = { fullScreenPhoto = null })
+    }
+    fullScreenRemote?.let { item ->
+        FullScreenRemoteVideo(item = item, onDismiss = { fullScreenRemote = null; controller.exitPlaybackMode() })
     }
 }
 
@@ -419,7 +418,7 @@ private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Mod
 @Composable
 private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
                        remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean, previewKey: String?,
-                       onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
+                       onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (DvrMedia) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
@@ -457,7 +456,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                     gridItems(items, key = { it.key }) { item ->
                         DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
                             playing = previewKey == item.key, editMode = editMode,
-                            onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onPreview = { onPreview(item.key) })
+                            onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onPreview = { onPreview(item) })
                     }
                 }
                 if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -659,6 +658,13 @@ private fun generatePlaybackError(error: PlaybackException): String {
 private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val uri = remember(file.key) { ShareFiles.uri(context, file) }
+    FullScreenPlayer(uri = uri, title = file.name, onDismiss = onDismiss)
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+private fun FullScreenPlayer(uri: Uri, title: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val player = remember(uri) {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
@@ -722,7 +728,7 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
                             Text(formatPlaybackTime(durationMs), color = Color.White, fontSize = 12.sp)
                         }
                     }
-                    Text(file.name, color = Color.White, fontSize = 18.sp, maxLines = 1,
+                    Text(title, color = Color.White, fontSize = 18.sp, maxLines = 1,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                 }
             }
@@ -733,6 +739,11 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
 private fun formatPlaybackTime(ms: Long): String {
     val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
     return String.format(Locale.getDefault(), "%d:%02d", totalSeconds / 60L, totalSeconds % 60L)
+}
+
+@Composable
+private fun FullScreenRemoteVideo(item: DvrMedia, onDismiss: () -> Unit) {
+    FullScreenPlayer(uri = Uri.parse(item.url), title = item.name, onDismiss = onDismiss)
 }
 
 @Composable
