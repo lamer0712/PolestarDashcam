@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class CategoryPage(val entries: List<DvrMedia> = emptyList(), val next: Int = 0,
                         val hasMore: Boolean = true, val error: String? = null)
@@ -195,12 +196,35 @@ class ExportController(private val app: Application) {
         if (status.recording != "normal") throw IOException("DVR 상태 ${status.recording}: 목록 모드로 변경할 수 없습니다.")
         rememberRecovery(api.base)
         var failure: Throwable? = null
+        val heartbeatRunning = AtomicBoolean(true)
+        val heartbeat = Thread({
+            while (heartbeatRunning.get()) {
+                try {
+                    Thread.sleep(5_000L)
+                    if (!heartbeatRunning.get()) break
+                    val current = api.statusOrNull()
+                    if (current?.recording != "in-file-list") {
+                        // OEM Gallery renews file-list mode every five seconds.
+                        api.setMode("enter-file-list")
+                    }
+                } catch (_: InterruptedException) {
+                    break
+                } catch (_: Exception) {
+                    // The foreground transfer remains authoritative; the next tick retries.
+                }
+            }
+        }, "dvr-file-list-heartbeat")
+        heartbeat.isDaemon = true
         try {
             api.setMode("enter-file-list")
+            heartbeat.start()
             stop.check()
             return action()
         } catch (e: Throwable) { failure = e; throw e }
         finally {
+            heartbeatRunning.set(false)
+            heartbeat.interrupt()
+            runCatching { heartbeat.join(1_000L) }
             try {
                 api.setMode("normal")
                 rememberRecovery(null)
