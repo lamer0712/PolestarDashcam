@@ -130,3 +130,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 - Inline playback now begins with the OEM direct GET behavior; resumed reads use Range only after a seek or interrupted stream.
 - Large-file download retries a direct-stream HTTP 403 with an open-ended Range request from the current byte offset.
+
+## 2026-09-13 v0.4.22 large-file retry validation
+
+- Partial files are preserved during resumed Range errors, and resumed requests no longer force `Connection: close`.

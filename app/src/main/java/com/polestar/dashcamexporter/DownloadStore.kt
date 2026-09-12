@@ -150,7 +150,6 @@ class DownloadStore(private val root: File) {
                     // (bytes=start-) more reliably than bounded byte ranges (bytes=start-end).
                     connection.setRequestProperty("Range", "bytes=$offset-")
                     connection.setRequestProperty("Accept-Encoding", "identity")
-                    connection.setRequestProperty("Connection", "close")
                 }
                 val before = offset
                 try {
@@ -200,11 +199,10 @@ class DownloadStore(private val root: File) {
                 } catch (e: UserCancelledException) {
                     throw e
                 } catch (e: IOException) {
-                    if (useRanges && isForbidden(e) && !directFallbackTried) {
+                    if (useRanges && isForbidden(e) && !directFallbackTried && before == 0L) {
                         // Some DVR firmware rejects the second open-ended range after a
                         // large response. Match the OEM Gallery's direct streaming path
                         // before giving up on the file.
-                        partial.delete()
                         expectedTotal = media.size
                         useRanges = false
                         directFallbackTried = true
