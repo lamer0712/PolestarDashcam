@@ -67,6 +67,8 @@ class ExportController(private val app: Application) {
     private var stop = StopToken()
     private var pendingTransfer: (() -> String)? = null
     private var playbackBase: String? = null
+    @Volatile private var playbackHeartbeatRunning = false
+    private var playbackHeartbeat: Thread? = null
 
     init {
         scope.launch {
@@ -158,6 +160,7 @@ class ExportController(private val app: Application) {
                     if (status.recording != "in-file-list") api.setMode("enter-file-list")
                 }
                 playbackBase = config.base
+                startPlaybackHeartbeat(DvrApi(config.base))
                 onReady()
             } catch (e: Exception) {
                 reportError("재생 모드 전환 실패: ${e.message ?: "DVR 응답 없음"}")
@@ -168,9 +171,37 @@ class ExportController(private val app: Application) {
     fun exitPlaybackMode() {
         val base = playbackBase ?: return
         playbackBase = null
+        stopPlaybackHeartbeat()
         scope.launch(Dispatchers.IO) {
             runCatching { DvrApi(base).setMode("normal") }
         }
+    }
+
+    private fun startPlaybackHeartbeat(api: DvrApi) {
+        stopPlaybackHeartbeat()
+        playbackHeartbeatRunning = true
+        playbackHeartbeat = Thread({
+            while (playbackHeartbeatRunning) {
+                try {
+                    Thread.sleep(5_000L)
+                    if (!playbackHeartbeatRunning) break
+                    if (api.statusOrNull()?.recording != "in-file-list") {
+                        api.setMode("enter-file-list")
+                    }
+                } catch (_: InterruptedException) {
+                    break
+                } catch (_: Exception) {
+                    // Retry on the next tick while the detail screen remains open.
+                }
+            }
+        }, "dvr-playback-heartbeat").also { it.isDaemon = true; it.start() }
+    }
+
+    private fun stopPlaybackHeartbeat() {
+        playbackHeartbeatRunning = false
+        playbackHeartbeat?.interrupt()
+        runCatching { playbackHeartbeat?.join(1_000L) }
+        playbackHeartbeat = null
     }
 
     fun cancel() {
