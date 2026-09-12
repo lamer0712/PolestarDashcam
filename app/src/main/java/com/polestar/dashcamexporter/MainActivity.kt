@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -120,6 +121,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                          onFolder: (List<SavedMedia>) -> Unit, onChooseFolder: () -> Unit) {
     val state by controller.state.collectAsState()
     LaunchedEffect(Unit) { controller.autoConnect() }
+    LaunchedEffect(state.exportTree) {
+        if (controller.shouldPromptInitialFolder()) {
+            controller.markInitialFolderPrompted()
+            onChooseFolder()
+        }
+    }
     var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
     var savedOpen by rememberSaveable { mutableStateOf(false) }
     var editMode by rememberSaveable { mutableStateOf(false) }
@@ -169,12 +176,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
             GalleryHeader(
                 title = if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery",
-                detail = state.dvrStatus,
                 inDetail = inDetail,
                 editMode = editMode,
-                connected = state.connected,
                 busy = state.busy,
-                hasExportFolder = state.exportTree != null,
                 onBack = ::leaveDetail,
                 onEdit = { editMode = !editMode; selected = emptyList() },
                 onChooseFolder = onChooseFolder
@@ -241,8 +245,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
 }
 
 @Composable
-private fun GalleryHeader(title: String, detail: String, inDetail: Boolean, editMode: Boolean, connected: Boolean,
-                          busy: Boolean, hasExportFolder: Boolean, onBack: () -> Unit, onEdit: () -> Unit,
+private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
+                          busy: Boolean, onBack: () -> Unit, onEdit: () -> Unit,
                           onChooseFolder: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(130.dp).padding(horizontal = 31.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -256,24 +260,12 @@ private fun GalleryHeader(title: String, detail: String, inDetail: Boolean, edit
             }
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (!inDetail) Text(
-                    if (busy) "Loading DVR…" else if (connected) "DVR connected · $detail" else detail,
-                    fontSize = 14.sp,
-                    color = Color(0xFFB8B8B8),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
             if (inDetail) IconButton(onClick = onEdit, modifier = Modifier.size(52.dp)) {
                 Text(if (editMode) "✓" else "✎", color = Color.White, fontSize = 42.sp)
             } else {
-                Surface(color = if (connected) Color(0xFF1F3F39) else Color(0xFF2A3441), shape = RoundedCornerShape(24.dp)) {
-                    Text(if (busy) "연결 중…" else if (connected) "연결됨" else "대기",
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp), fontSize = 13.sp)
-                }
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = onChooseFolder, enabled = !busy) {
-                    Text(if (hasExportFolder) "▣" else "□", fontSize = 24.sp, color = Color(0xFFA3F0D5))
+                IconButton(onClick = onChooseFolder, enabled = !busy, modifier = Modifier.size(56.dp)) {
+                    Text("⚙", fontSize = 36.sp, color = Color(0xFFA3F0D5))
                 }
             }
         }
@@ -380,24 +372,54 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
 @Composable
 private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, editMode: Boolean, onToggle: () -> Unit) {
     Column(Modifier.clickable(onClick = onToggle)) {
-        Box {
-            Thumbnail(path = thumbnailPath, width = 147.dp, height = 147.dp, radius = 0.dp)
+        SelectableThumbnail(path = thumbnailPath, selected = selected) {
             if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
         }
-        Text(item.displayRange, fontSize = 22.sp, color = Color.White, lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp))
-        Text(item.name, fontSize = 12.sp, color = Color(0xFF9C9C9C), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(item.displayRange, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
+            lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text(item.name, fontSize = 12.sp, color = if (selected) Color(0xFFFFB26A) else Color(0xFF9C9C9C),
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
     Column(Modifier.clickable(onClick = if (editMode) onToggle else onOpen)) {
-        Box {
-            Thumbnail(path = null, width = 147.dp, height = 147.dp, radius = 0.dp)
+        SelectableThumbnail(path = null, selected = selected) {
             if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
         }
-        Text(item.name, fontSize = 22.sp, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-        Text("${item.kind.galleryTitle} · ${formatBytes(item.size)}", fontSize = 12.sp, color = Color(0xFF9C9C9C))
+        Text(item.name, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text("${item.kind.galleryTitle} · ${formatBytes(item.size)}", fontSize = 12.sp,
+            color = if (selected) Color(0xFFFFB26A) else Color(0xFF9C9C9C))
+    }
+}
+
+@Composable
+private fun SelectableThumbnail(path: String?, selected: Boolean, overlay: @Composable BoxScope.() -> Unit = {}) {
+    Surface(
+        color = Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
+        border = if (selected) BorderStroke(5.dp, Color(0xFFFF7A00)) else null,
+        modifier = Modifier.size(147.dp)
+    ) {
+        Box {
+            Thumbnail(path = path, width = 147.dp, height = 147.dp, radius = 0.dp)
+            if (selected) {
+                Box(Modifier.matchParentSize().background(Color(0x66000000)))
+                Surface(
+                    color = Color(0xFFFF7A00),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("✓", color = Color.Black, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            overlay()
+        }
     }
 }
 

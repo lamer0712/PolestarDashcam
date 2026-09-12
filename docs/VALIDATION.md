@@ -2,7 +2,7 @@
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.4.0 보정: 앱 이름을 갤러리+로 바꾸고 OEM 갤러리와 같은 앨범 홈/세부 목록 흐름으로 UI를 재구성했습니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
+0.4.1 보정: 앱 이름은 갤러리+로 유지하고 홈 화면 보조 문구와 연결 상태 캡슐을 제거했습니다. 폴더 설정은 톱니 아이콘으로 바꾸고, 저장 폴더가 없으면 최초 실행 시 폴더 선택기를 띄웁니다. 선택된 영상·사진은 주황색 테두리와 체크 배지로 더 명확히 표시합니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
 
 ## 완료
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `:app:testDebugUnitTest` | 20 tests, 0 failures, 0 errors |
 | `:app:lintDebug` | 통과. 신규 의존성 버전 안내 및 여유 공간 API 권고 경고만 남음 |
-| `:app:assembleDebug` | 성공, versionName 0.4.0 / versionCode 9 |
+| `:app:assembleDebug` | 성공, versionName 0.4.1 / versionCode 10 |
 | APK 서명 검사 | `apksigner verify --print-certs` 성공, Android Debug 서명 |
 | AAOS API 35 에뮬레이터 설치/실행 | 성공, 운전자 user 10, 1920×1200 |
 | 계측 테스트 | 8 tests 모두 통과 |
@@ -36,14 +36,14 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `GalleryPlus-v0.4.0-20260912-1635.apk`
+파일명: `GalleryPlus-v0.4.1-20260912-1706.apk`
 
-- 크기: 20,666,593 bytes (약 19.7 MiB)
-- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.0-20260912-1635.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.0-20260912-1635.apk`
+- 크기: 20,673,277 bytes (약 19.7 MiB)
+- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.1-20260912-1706.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.1-20260912-1706.apk`
 - 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-latest.apk`
 - 호환 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
-- SHA-256: `a2e208d727fb4cea63b772581105b1f68382d686843f732dd43c62c0ac6e58e9`
+- SHA-256: `2c4f00217855b4f693b44dbc4b1a783826d657b0ea375e826b2ef7f18bac611d`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다. 앱 표시 이름과 다운로드 알림 제목은 `갤러리+`입니다.
 

@@ -78,6 +78,13 @@ class ExportController(private val app: Application) {
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
 
+    fun shouldPromptInitialFolder(): Boolean =
+        state.value.exportTree == null && !preferences.getBoolean("initialFolderPromptedV1", false)
+
+    fun markInitialFolderPrompted() {
+        preferences.edit().putBoolean("initialFolderPromptedV1", true).apply()
+    }
+
     fun setExportFolder(tree: Uri) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         runCatching { app.contentResolver.takePersistableUriPermission(tree, flags) }
