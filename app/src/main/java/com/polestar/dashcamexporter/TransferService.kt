@@ -30,7 +30,7 @@ class TransferService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("transfer", "파일 전송", NotificationManager.IMPORTANCE_LOW))
         fun notification(text: String) = NotificationCompat.Builder(this, "transfer")
-            .setSmallIcon(R.drawable.ic_dashcam).setContentTitle("갤러리+")
+            .setSmallIcon(R.drawable.ic_dashcam).setContentTitle("Gallery+")
             .setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
             .addAction(0, "취소", PendingIntent.getService(this, 1,

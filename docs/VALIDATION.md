@@ -2,7 +2,7 @@
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.4.4 보정: 편집 모드 진입 시 전체 선택 버튼 때문에 영상 그리드가 아래로 움직이지 않도록 상단 행 높이를 고정했습니다. Saved 화면은 설정에서 지정한 SAF 폴더의 실제 문서 목록을 읽어 표시하도록 변경했습니다. 선택 상태는 주황색 테두리만 남기고 우상단 체크 배지를 제거했습니다. 편집 모드에서는 체크박스 중복 토글을 없애고 타일 클릭만으로 다중 선택이 안정적으로 동작하게 했습니다. 영상 타일을 일반 모드에서 누르면 썸네일 자리에서 바로 재생합니다. 편집 모드에서는 같은 타일 클릭이 선택으로 동작해 Export 흐름을 유지합니다. 앱 이름은 갤러리+로 유지하고 홈 화면 보조 문구와 연결 상태 캡슐을 제거했습니다. 폴더 설정은 톱니 아이콘으로 바꾸고, 저장 폴더가 없으면 최초 실행 시 폴더 선택기를 띄웁니다. 선택된 영상·사진은 주황색 테두리와 체크 배지로 더 명확히 표시합니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
+0.4.5 보정: 앱 표시 이름과 알림 제목을 영어 Gallery+로 바꾸고, 홈 상단 제목을 Gallery+로 변경했습니다. 구분선 아래 일반 메시지 박스를 제거했습니다.  편집 모드 진입 시 전체 선택 버튼 때문에 영상 그리드가 아래로 움직이지 않도록 상단 행 높이를 고정했습니다. Saved 화면은 설정에서 지정한 SAF 폴더의 실제 문서 목록을 읽어 표시하도록 변경했습니다. 선택 상태는 주황색 테두리만 남기고 우상단 체크 배지를 제거했습니다. 편집 모드에서는 체크박스 중복 토글을 없애고 타일 클릭만으로 다중 선택이 안정적으로 동작하게 했습니다. 영상 타일을 일반 모드에서 누르면 썸네일 자리에서 바로 재생합니다. 편집 모드에서는 같은 타일 클릭이 선택으로 동작해 Export 흐름을 유지합니다. 앱 이름은 Gallery+로 변경하고 홈 화면 보조 문구와 연결 상태 캡슐을 제거했습니다. 폴더 설정은 톱니 아이콘으로 바꾸고, 저장 폴더가 없으면 최초 실행 시 폴더 선택기를 띄웁니다. 선택된 영상·사진은 주황색 테두리와 체크 배지로 더 명확히 표시합니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
 
 ## 완료
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `:app:testDebugUnitTest` | 20 tests, 0 failures, 0 errors |
 | `:app:lintDebug` | 통과. 신규 의존성 버전 안내 및 여유 공간 API 권고 경고만 남음 |
-| `:app:assembleDebug` | 성공, versionName 0.4.4 / versionCode 13 |
+| `:app:assembleDebug` | 성공, versionName 0.4.5 / versionCode 14 |
 | APK 서명 검사 | `apksigner verify --print-certs` 성공, Android Debug 서명 |
 | AAOS API 35 에뮬레이터 설치/실행 | 성공, 운전자 user 10, 1920×1200 |
 | 계측 테스트 | 8 tests 모두 통과 |
@@ -25,6 +25,7 @@
 | 편집 모드 다중 선택 | 체크박스 중복 토글 제거, 타일 클릭 기반 다중 선택 흐름 계측 테스트 통과 |
 | 편집 모드 위치 안정화 | 전체 선택 버튼 영역 높이를 고정해 일반/편집 모드 전환 시 그리드 시작 위치 유지 |
 | Saved 폴더 동기화 | 지정 SAF 폴더가 있으면 내부 저장소 대신 해당 폴더의 문서 목록을 표시 |
+| 앱 이름과 메시지 영역 | APK label/알림 제목 Gallery+ 확인, 홈 제목 Gallery+ 적용, 일반 메시지 박스 제거 |
 
 단위 테스트는 OEM 스키마·누락/오류 응답·한글/공백/특수문자 URL·경로 순회 차단·정확한 페이지 query·64비트 크기·분류 불일치·바이트 보존·동명 파일 분리·완료 파일 재사용·HTTP 오류/redirect·HTML 오류 문서·크기 불일치·취소 임시 파일 정리·빈/잘린 스트림·chunked 다운로드·모드 요청과 readback을 검사합니다.
 
@@ -40,16 +41,16 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `GalleryPlus-v0.4.4-20260912-1725.apk`
+파일명: `GalleryPlus-v0.4.5-20260912-1728.apk`
 
-- 크기: 21,013,330 bytes (약 20.0 MiB)
-- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.4-20260912-1725.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.4-20260912-1725.apk`
+- 크기: 20,684,021 bytes (약 19.7 MiB)
+- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.5-20260912-1728.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.5-20260912-1728.apk`
 - 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-latest.apk`
 - 호환 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
-- SHA-256: `e694f4de01904aec511158cab704e12080a6d52cafeba3c7804e9828b250cf3b`
+- SHA-256: `02ab8f36f5cdcbe943be8242e71b430dbadd78409a5605c400f9763fdfbbc212`
 
-로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다. 앱 표시 이름과 다운로드 알림 제목은 `갤러리+`입니다.
+로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다. 앱 표시 이름과 다운로드 알림 제목은 `Gallery+`입니다.
 
 ## 실차 확인 필요
 

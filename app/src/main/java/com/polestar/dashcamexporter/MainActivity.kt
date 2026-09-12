@@ -184,7 +184,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
             GalleryHeader(
-                title = if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery",
+                title = if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery+",
                 inDetail = inDetail,
                 editMode = editMode,
                 busy = state.busy,
@@ -209,19 +209,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     val fraction = state.fraction
                     if (fraction == null) LinearProgressIndicator(Modifier.fillMaxWidth())
                     else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
-                }
-            }
-            val showMessage = state.message.isNotEmpty() &&
-                !state.message.contains("조회") &&
-                !state.message.contains("목록을 갱신")
-            if (showMessage) {
-                Surface(color = Color(0xFF232323), shape = RoundedCornerShape(0.dp), modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
-                    Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(state.message, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 13.sp, maxLines = 5)
-                        if (!state.busy && !state.connected && state.recoveryBase == null)
-                            TextButton(onClick = controller::refresh) { Text("다시 연결") }
-                        TextButton(onClick = { controller.message("") }) { Text("닫기") }
-                    }
                 }
             }
             Row(Modifier.fillMaxSize()) {

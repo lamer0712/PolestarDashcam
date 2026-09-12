@@ -10,7 +10,7 @@
         android:name=".ExporterApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:label="갤러리+"
+        android:label="Gallery+"
         android:icon="@drawable/ic_dashcam"
         android:theme="@style/AppTheme"
         android:networkSecurityConfig="@xml/network_security_config"
