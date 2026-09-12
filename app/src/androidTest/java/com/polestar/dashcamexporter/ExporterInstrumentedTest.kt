@@ -55,8 +55,9 @@ class ExporterInstrumentedTest {
         assertEquals(50, controller.state.value.pages[MediaKind.NORMAL]!!.entries.size)
         assertEquals(2, controller.state.value.pages[MediaKind.EMERGENCY]!!.entries.size)
         assertEquals(2, controller.state.value.pages[MediaKind.PHOTO]!!.entries.size)
+        compose.onNodeWithText("Loop videos").performClick()
         compose.onNodeWithText("normal_000.mp4").performClick()
-        compose.onNodeWithText("선택 항목 저장").performClick()
+        compose.onNodeWithText("Export").performClick()
         idle()
         val saved = controller.state.value.saved.first { it.name == "normal_000.mp4" }
         val publicCount = compose.activity.contentResolver.query(

@@ -120,18 +120,33 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                          onFolder: (List<SavedMedia>) -> Unit, onChooseFolder: () -> Unit) {
     val state by controller.state.collectAsState()
     LaunchedEffect(Unit) { controller.autoConnect() }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
+    var savedOpen by rememberSaveable { mutableStateOf(false) }
+    var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    val local = tab == 3
-    val kind = MediaKind.entries.getOrNull(tab)
-    val page = state.pages[kind]
+    val currentAlbum = album
+    val inDetail = currentAlbum != null || savedOpen
+    val local = savedOpen
+    val page = currentAlbum?.let { state.pages[it] }
     val remote = page?.entries.orEmpty()
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     val selection = selected.filter { it in keys }.toSet()
     fun toggle(key: String) { selected = ArrayList(if (key in selection) selection - key else selection + key) }
+    fun leaveDetail() {
+        album = null
+        savedOpen = false
+        editMode = false
+        selected = emptyList()
+    }
+    fun openAlbum(kind: MediaKind) {
+        album = kind
+        savedOpen = false
+        editMode = false
+        selected = emptyList()
+    }
 
-    Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
-        Surface(tonalElevation = 3.dp) {
+    Scaffold(containerColor = Color(0xFF121212), bottomBar = {
+        if (inDetail) Surface(color = Color(0xFF171717), tonalElevation = 3.dp) {
             Column(Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("${selection.size}개 선택", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
@@ -142,48 +157,30 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("공유") }
                     } else {
                         Button(onClick = { onDownload(remote.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy && state.recoveryBase == null,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("선택 항목 저장") }
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("Export") }
                     }
                 }
-                Text(if (local) "파일을 눌러 재생하거나 공유할 수 있습니다. USB 저장도 지원합니다."
-                    else "선택한 파일은 기기의 갤러리 폴더에 자동 저장됩니다.", fontSize = 12.sp,
+                Text(if (local) "저장된 파일은 재생하거나 공유할 수 있습니다."
+                    else "선택한 파일은 기기의 갤러리 폴더와 지정한 폴더에 저장됩니다.", fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding().padding(horizontal = 24.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("DASHCAM", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, letterSpacing = 2.sp)
-                    Text("갤러리", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                }
-                Surface(color = if (state.connected) Color(0xFF203F3B) else MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(20.dp)) {
-                    Text(if (state.busy) "연결 중…" else if (state.connected) "연결됨" else "자동 연결 대기",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), fontSize = 12.sp)
-                }
-                IconButton(onClick = onChooseFolder, enabled = !state.busy) {
-                    Text("▣", fontSize = 25.sp, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-            Text("주차 중에 사용하세요 · ${state.dvrStatus}", fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (state.exportTree != null) {
-                Text("자동 저장 폴더 지정됨 · ▣ 버튼으로 변경", fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
-            }
-            Text("앨범", fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MediaKind.entries.forEachIndexed { index, mediaKind ->
-                    val albumPage = state.pages[mediaKind]
-                    val cover = albumPage?.entries?.firstOrNull()?.let { state.thumbnails[it.key] }
-                    AlbumCard(mediaKind, albumPage?.entries?.size ?: 0, cover,
-                        Modifier.weight(1f), onClick = { tab = index; selected = arrayListOf() })
-                }
-            }
+        Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
+            GalleryHeader(
+                title = if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery",
+                detail = state.dvrStatus,
+                inDetail = inDetail,
+                editMode = editMode,
+                connected = state.connected,
+                busy = state.busy,
+                hasExportFolder = state.exportTree != null,
+                onBack = ::leaveDetail,
+                onEdit = { editMode = !editMode; selected = emptyList() },
+                onChooseFolder = onChooseFolder
+            )
             if (state.recoveryBase != null) {
-                Surface(color = Color(0xFF553428), shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                Surface(color = Color(0xFF553428), shape = RoundedCornerShape(0.dp), modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("DVR 녹화 복귀 확인 필요\n${state.recoveryBase}", Modifier.weight(1f))
                         Button(onClick = controller::recoverRecording, enabled = !state.busy) { Text("녹화 복귀 재시도") }
@@ -191,7 +188,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 }
             }
             if (state.busy) {
-                Column(Modifier.padding(top = 8.dp)) {
+                Column(Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(state.progressText, Modifier.weight(1f), fontSize = 13.sp, maxLines = 2)
                         TextButton(onClick = controller::cancel) { Text("취소") }
@@ -201,8 +198,11 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                 }
             }
-            if (state.message.isNotEmpty()) {
-                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.padding(top = 8.dp)) {
+            val showMessage = state.message.isNotEmpty() &&
+                !state.message.contains("조회") &&
+                !state.message.contains("목록을 갱신")
+            if (showMessage) {
+                Surface(color = Color(0xFF232323), shape = RoundedCornerShape(0.dp), modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
                     Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(state.message, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 13.sp, maxLines = 5)
                         if (!state.busy && !state.connected && state.recoveryBase == null)
@@ -211,54 +211,29 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     }
                 }
             }
-            TabRow(selectedTabIndex = tab, containerColor = Color.Transparent, modifier = Modifier.padding(top = 8.dp)) {
-                (MediaKind.entries.map { it.label } + "저장됨").forEachIndexed { index, title ->
-                    Tab(selected = tab == index, onClick = { tab = index; selected = arrayListOf() }, text = {
-                        val count = if (index == 3) state.saved.size else state.pages[MediaKind.entries[index]]?.entries?.size ?: 0
-                        Text("$title  $count", maxLines = 1)
-                    })
-                }
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (local) "기기에 보관된 파일 · ${formatBytes(state.saved.sumOf { it.size })}"
-                    else "${kind?.api.orEmpty()} · 최신 파일부터 표시", fontSize = 13.sp, modifier = Modifier.weight(1f))
-                TextButton(onClick = { selected = if (selection.size == keys.size) arrayListOf() else ArrayList(keys) },
-                    enabled = keys.isNotEmpty() && !state.busy) { Text(if (selection.isNotEmpty() && selection.size == keys.size) "선택 해제" else "전체 선택") }
-            }
-            LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 280.dp),
-                modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-                if (local) {
-                    gridItems(state.saved, key = { it.key }) { item ->
-                        MediaRow(item.name, detail = "${item.kind.label} · ${formatBytes(item.size)} · 저장 완료",
-                            selected = item.key in selection, enabled = !state.busy, toggle = { toggle(item.key) },
-                            open = { onOpen(item) })
-                    }
+            Row(Modifier.fillMaxSize()) {
+                GallerySidebar(savedSelected = savedOpen, onAlbums = ::leaveDetail, onSaved = {
+                    album = null
+                    savedOpen = true
+                    editMode = false
+                    selected = emptyList()
+                })
+                if (inDetail) {
+                    DetailGrid(
+                        kind = currentAlbum,
+                        local = local,
+                        state = state,
+                        page = page,
+                        remote = remote,
+                        selection = selection,
+                        editMode = editMode,
+                        onToggle = ::toggle,
+                        onOpen = onOpen,
+                        onMore = { currentAlbum?.let(controller::more) },
+                        onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) }
+                    )
                 } else {
-                    gridItems(remote, key = { it.key }) { item ->
-                        MediaRow(item.name, state.thumbnails[item.key], listOfNotNull(formatTimestamp(item.dateTime),
-                            if (item.size > 0) formatBytes(item.size) else "크기 미상").joinToString(" · "),
-                            item.key in selection, !state.busy, { toggle(item.key) })
-                    }
-                    if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
-                    }
-                    if (page != null && (page.hasMore || page.error != null) && state.directories.any { it.kind == kind }) item(span = { GridItemSpan(maxLineSpan) }) {
-                        OutlinedButton(onClick = { kind?.let(controller::more) }, enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                            Text(if (page.error != null) "목록 재시도" else "다음 목록 불러오기")
-                        }
-                    }
-                }
-                if (keys.isEmpty() && !state.busy) item(span = { GridItemSpan(maxLineSpan) }) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (local) "아직 다운로드한 파일이 없습니다" else if (state.connected) "표시할 파일이 없습니다" else "차량의 대시캠 파일을 가져오세요",
-                            fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(12.dp))
-                        Text(if (local) "일반·긴급·사진 탭에서 파일을 선택하고 다운로드하세요."
-                            else if (state.connected) "다른 분류를 선택하거나 목록을 새로고침하세요."
-                            else "자동 연결 후 파일을 선택해 저장하거나 재생하세요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    AlbumHome(state = state, onAlbum = ::openAlbum)
                 }
             }
         }
@@ -266,18 +241,75 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
 }
 
 @Composable
-private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String, selected: Boolean,
-                     enabled: Boolean, toggle: () -> Unit, open: (() -> Unit)? = null) {
-    Surface(color = if (selected) Color(0xFF203F3B) else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = toggle)) {
-        Row(Modifier.padding(12.dp).heightIn(min = 58.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = selected, onCheckedChange = { toggle() }, enabled = enabled)
-            Thumbnail(path = thumbnailPath)
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(name, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(detail, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (open != null) TextButton(onClick = open, contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.heightIn(min = 32.dp)) { Text("▶ 재생") }
+private fun GalleryHeader(title: String, detail: String, inDetail: Boolean, editMode: Boolean, connected: Boolean,
+                          busy: Boolean, hasExportFolder: Boolean, onBack: () -> Unit, onEdit: () -> Unit,
+                          onChooseFolder: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().height(130.dp).padding(horizontal = 31.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (inDetail) {
+                Text("←", color = Color(0xFFFF7A00), fontSize = 48.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 24.dp))
+            } else {
+                Surface(color = Color(0xFFE9322D), shape = RoundedCornerShape(0.dp), modifier = Modifier.size(47.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Text("▢", color = Color.White, fontSize = 34.sp) }
+                }
+                Spacer(Modifier.width(31.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!inDetail) Text(
+                    if (busy) "Loading DVR…" else if (connected) "DVR connected · $detail" else detail,
+                    fontSize = 14.sp,
+                    color = Color(0xFFB8B8B8),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (inDetail) IconButton(onClick = onEdit, modifier = Modifier.size(52.dp)) {
+                Text(if (editMode) "✓" else "✎", color = Color.White, fontSize = 42.sp)
+            } else {
+                Surface(color = if (connected) Color(0xFF1F3F39) else Color(0xFF2A3441), shape = RoundedCornerShape(24.dp)) {
+                    Text(if (busy) "연결 중…" else if (connected) "연결됨" else "대기",
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp), fontSize = 13.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = onChooseFolder, enabled = !busy) {
+                    Text(if (hasExportFolder) "▣" else "□", fontSize = 24.sp, color = Color(0xFFA3F0D5))
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF343434)))
+    }
+}
+
+@Composable
+private fun GallerySidebar(savedSelected: Boolean, onAlbums: () -> Unit, onSaved: () -> Unit) {
+    Column(Modifier.width(244.dp).fillMaxHeight().background(Color(0xFF181818)).padding(top = 43.dp)) {
+        SidebarItem("▭", "Albums", selected = !savedSelected, onClick = onAlbums)
+        SidebarItem("↓", "Saved", selected = savedSelected, onClick = onSaved)
+    }
+}
+
+@Composable
+private fun SidebarItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().height(145.dp).clickable(onClick = onClick).padding(start = 31.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(icon, color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8), fontSize = 42.sp)
+        Text(label, color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8), fontSize = 34.sp)
+    }
+}
+
+@Composable
+private fun AlbumHome(state: ExportState, onAlbum: (MediaKind) -> Unit) {
+    Column(Modifier.fillMaxSize().padding(start = 31.dp, top = 31.dp, end = 16.dp)) {
+        Text("Exterior", color = Color(0xFFB8B8B8), fontSize = 36.sp)
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(31.dp)) {
+            MediaKind.entries.forEach { kind ->
+                val albumPage = state.pages[kind]
+                val cover = albumPage?.entries?.firstOrNull()?.let { state.thumbnails[it.key] }
+                AlbumCard(kind, albumPage?.entries?.size ?: 0, cover, Modifier.weight(1f), onClick = { onAlbum(kind) })
             }
         }
     }
@@ -285,27 +317,105 @@ private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String
 
 @Composable
 private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Modifier, onClick: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(10.dp),
-        modifier = modifier.clickable(onClick = onClick)) {
-        Column(Modifier.padding(8.dp)) {
-            Thumbnail(path = cover)
-            Text(kind.label, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
-            Text("${count}개", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(modifier.clickable(onClick = onClick)) {
+        Thumbnail(path = cover, width = 309.dp, height = 309.dp, radius = 0.dp)
+        Spacer(Modifier.height(8.dp))
+        Text(kind.galleryTitle, fontSize = 31.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("$count", fontSize = 31.sp, color = Color(0xFFB8B8B8))
+    }
+}
+
+@Composable
+private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
+                       remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean,
+                       onToggle: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
+                       onSelectAll: () -> Unit) {
+    val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
+    Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (local) "${state.saved.size} files" else "${remote.size} files",
+                color = Color(0xFFB8B8B8), fontSize = 18.sp, modifier = Modifier.weight(1f))
+            if (editMode) TextButton(onClick = onSelectAll, enabled = keys.isNotEmpty() && !state.busy) {
+                Text(if (selection.size == keys.size && keys.isNotEmpty()) "Deselect all" else "Select all")
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 140.dp),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(15.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            if (local) {
+                gridItems(state.saved, key = { it.key }) { item ->
+                    SavedTile(item, selected = item.key in selection, editMode = editMode,
+                        onToggle = { onToggle(item.key) }, onOpen = { onOpen(item) })
+                }
+            } else {
+                gridItems(remote, key = { it.key }) { item ->
+                    DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
+                        editMode = editMode, onToggle = { onToggle(item.key) })
+                }
+                if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
+                }
+                if (page != null && (page.hasMore || page.error != null) && state.directories.any { it.kind == kind }) item(span = { GridItemSpan(maxLineSpan) }) {
+                    OutlinedButton(onClick = onMore, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text(if (page.error != null) "Retry" else "Load more")
+                    }
+                }
+            }
+            if (keys.isEmpty() && !state.busy) item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (local) "No saved files" else "No files", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    Text(if (local) "Export videos from an album first." else "The DVR did not return files for this album.",
+                        color = Color(0xFFB8B8B8), fontSize = 18.sp)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Thumbnail(path: String?) {
+private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, editMode: Boolean, onToggle: () -> Unit) {
+    Column(Modifier.clickable(onClick = onToggle)) {
+        Box {
+            Thumbnail(path = thumbnailPath, width = 147.dp, height = 147.dp, radius = 0.dp)
+            if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
+        }
+        Text(item.displayRange, fontSize = 22.sp, color = Color.White, lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp))
+        Text(item.name, fontSize = 12.sp, color = Color(0xFF9C9C9C), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
+    Column(Modifier.clickable(onClick = if (editMode) onToggle else onOpen)) {
+        Box {
+            Thumbnail(path = null, width = 147.dp, height = 147.dp, radius = 0.dp)
+            if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
+        }
+        Text(item.name, fontSize = 22.sp, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+        Text("${item.kind.galleryTitle} · ${formatBytes(item.size)}", fontSize = 12.sp, color = Color(0xFF9C9C9C))
+    }
+}
+
+@Composable
+private fun Thumbnail(path: String?, width: androidx.compose.ui.unit.Dp = 72.dp,
+                      height: androidx.compose.ui.unit.Dp = 72.dp,
+                      radius: androidx.compose.ui.unit.Dp = 8.dp) {
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, path) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             path?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
         }
     }
     if (bitmap != null) Image(bitmap!!, contentDescription = "썸네일", contentScale = ContentScale.Crop,
-        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)))
-    else Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.size(72.dp)) { Box(contentAlignment = Alignment.Center) { Text("미리보기", fontSize = 11.sp) } }
+        modifier = Modifier.size(width = width, height = height).clip(RoundedCornerShape(radius)))
+    else Surface(color = Color(0xFF252525), shape = RoundedCornerShape(radius),
+        modifier = Modifier.size(width = width, height = height)) {
+        Box(contentAlignment = Alignment.Center) { Text("▱", color = Color(0xFF777777), fontSize = 72.sp) }
+    }
 }
 
 private fun formatTimestamp(value: Long): String? {

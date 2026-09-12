@@ -2,7 +2,7 @@
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.3.0 보정: OEM 갤러리의 앨범 중심 화면을 반영하고, 상단 ▣ 버튼으로 고른 SAF 폴더를 기억해 다운로드 파일을 공용 미디어 폴더와 해당 폴더에 자동 복사하도록 변경했습니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
+0.4.0 보정: 앱 이름을 갤러리+로 바꾸고 OEM 갤러리와 같은 앨범 홈/세부 목록 흐름으로 UI를 재구성했습니다. 앱 시작 시 자동 연결하며, 선택한 영상·사진은 Android 갤러리 공용 폴더와 사용자가 고른 SAF 폴더에 자동 복사됩니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
 
 ## 완료
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `:app:testDebugUnitTest` | 20 tests, 0 failures, 0 errors |
 | `:app:lintDebug` | 통과. 신규 의존성 버전 안내 및 여유 공간 API 권고 경고만 남음 |
-| `:app:assembleDebug` | 성공 |
+| `:app:assembleDebug` | 성공, versionName 0.4.0 / versionCode 9 |
 | APK 서명 검사 | `apksigner verify --print-certs` 성공, Android Debug 서명 |
 | AAOS API 35 에뮬레이터 설치/실행 | 성공, 운전자 user 10, 1920×1200 |
 | 계측 테스트 | 8 tests 모두 통과 |
@@ -20,6 +20,7 @@
 | 실제 Android 공유 시트 실행 | 성공. 에뮬레이터에 영상 공유 대상 앱이 없어 `No apps can perform this action` 표시 |
 | iCloud Drive APK 복사 | 원본/프로젝트 artifacts/iCloud 복사본 SHA-256 일치 |
 | 사용자 지정 폴더 설정 | SAF 폴더 URI를 영속 권한으로 저장하고 다음 다운로드부터 자동 복사 |
+| 갤러리+ UI 스크린샷 | AAOS API 35 에뮬레이터에서 앨범 홈과 Loop videos 세부 목록 캡처 |
 
 단위 테스트는 OEM 스키마·누락/오류 응답·한글/공백/특수문자 URL·경로 순회 차단·정확한 페이지 query·64비트 크기·분류 불일치·바이트 보존·동명 파일 분리·완료 파일 재사용·HTTP 오류/redirect·HTML 오류 문서·크기 불일치·취소 임시 파일 정리·빈/잘린 스트림·chunked 다운로드·모드 요청과 readback을 검사합니다.
 
@@ -35,14 +36,16 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
+파일명: `GalleryPlus-v0.4.0-20260912-1635.apk`
 
-- 크기: 20,636,657 bytes (약 19.7 MiB)
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
-- 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
-- SHA-256: `8aa76177189848edc991c4c5b0f96730b76d2f7e97bd39a13233cf54576ed8c4`
+- 크기: 20,666,593 bytes (약 19.7 MiB)
+- 프로젝트 사본: `/Users/home/PolestarDashcamExporter/artifacts/GalleryPlus-v0.4.0-20260912-1635.apk`
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-v0.4.0-20260912-1635.apk`
+- 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/GalleryPlus-latest.apk`
+- 호환 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
+- SHA-256: `a2e208d727fb4cea63b772581105b1f68382d686843f732dd43c62c0ac6e58e9`
 
-로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다.
+로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다. 앱 표시 이름과 다운로드 알림 제목은 `갤러리+`입니다.
 
 ## 실차 확인 필요
 
@@ -58,5 +61,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 - [SAF 폴더 복사 완료](screenshots/02-folder-export.png)
 - [공유 시트: 대상 앱 없음](screenshots/03-share-sheet.png)
 - [앨범 중심 화면과 자동 연결](screenshots/05-custom-folder-gallery.png)
+- [갤러리+ 앨범 홈](screenshots/06-gallery-plus-home.png)
+- [갤러리+ Loop videos 세부 목록](screenshots/07-gallery-plus-detail.png)
 
 빌드 및 테스트 로그 사본은 `artifacts/`에 보관합니다.

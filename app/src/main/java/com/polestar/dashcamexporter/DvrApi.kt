@@ -19,6 +19,12 @@ enum class MediaKind(val api: String, val label: String) {
     companion object { fun from(value: String) = entries.firstOrNull { it.api == value } }
 }
 
+val MediaKind.galleryTitle: String get() = when (this) {
+    MediaKind.NORMAL -> "Loop videos"
+    MediaKind.EMERGENCY -> "Emergency videos"
+    MediaKind.PHOTO -> "Photos"
+}
+
 data class MediaDirectory(val kind: MediaKind, val path: String, val count: Int)
 data class DvrStatus(val usable: Boolean, val recording: String)
 data class DvrMedia(
@@ -27,6 +33,14 @@ data class DvrMedia(
 ) {
     val key: String get() = MessageDigest.getInstance("SHA-256")
         .digest("$url|$id|$dateTime|$size".toByteArray()).joinToString("") { "%02x".format(it) }
+    val displayRange: String get() {
+        if (kind == MediaKind.PHOTO || dateTime <= 0L) return name
+        val start = if (dateTime < 100_000_000_000L) dateTime * 1000 else dateTime
+        val end = start + duration.coerceAtLeast(0) * 1000L
+        return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).let {
+            "${it.format(java.util.Date(start))}-\n${it.format(java.util.Date(end))}"
+        }
+    }
 }
 
 class UserCancelledException : IOException("작업을 취소했습니다.")
