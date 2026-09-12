@@ -2,6 +2,8 @@
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
+0.4.11 보정: 세부 목록 썸네일을 원 갤러리 크기에 맞춰 확대하고 앨범 카드를 고정 폭으로 왼쪽 정렬했습니다.
+
 0.4.10 보정: 썸네일 인라인 재생을 Android 기본 VideoView에서 AndroidX Media3 ExoPlayer로 변경했습니다. 재생 준비 중/실패 상태를 타일에 표시해 검정 화면만 남지 않게 했고, mock DVR은 실제 MP4 및 HTTP Range 응답을 지원합니다.
 
 0.4.9 보정: 원 갤러리 APK에서 확인한 대용량 읽기 방식에 맞춰 DVR 다운로드 Range를 `bytes=offset-` open-ended 형태로만 보내도록 변경했습니다. 앱 내부에서는 32 MiB 단위로 읽고 재연결해 60 MiB 이상 파일의 스트림 끊김과 bounded Range 403을 피합니다.

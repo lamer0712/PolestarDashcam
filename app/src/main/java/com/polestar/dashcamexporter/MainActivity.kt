@@ -303,7 +303,7 @@ private fun AlbumHome(state: ExportState, onAlbum: (MediaKind) -> Unit) {
             MediaKind.entries.forEach { kind ->
                 val albumPage = state.pages[kind]
                 val cover = albumPage?.entries?.firstOrNull()?.let { state.thumbnails[it.key] }
-                AlbumCard(kind, albumPage?.entries?.size ?: 0, cover, Modifier.weight(1f), onClick = { onAlbum(kind) })
+                AlbumCard(kind, albumPage?.entries?.size ?: 0, cover, Modifier.width(334.dp), onClick = { onAlbum(kind) })
             }
         }
     }
@@ -339,7 +339,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 140.dp),
+            columns = GridCells.Adaptive(minSize = 150.dp),
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp),
@@ -413,11 +413,11 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
         border = if (selected) BorderStroke(5.dp, Color(0xFFFF7A00)) else null,
-        modifier = Modifier.size(147.dp)
+        modifier = Modifier.size(154.dp)
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
-            else Thumbnail(path = path, width = 147.dp, height = 147.dp, radius = 0.dp)
+            else Thumbnail(path = path, width = 154.dp, height = 154.dp, radius = 0.dp)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
                     Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
@@ -455,7 +455,7 @@ private fun InlineVideo(url: String) {
     DisposableEffect(player) {
         onDispose { player.release() }
     }
-    Box(Modifier.size(147.dp)) {
+    Box(Modifier.size(154.dp)) {
         AndroidView(
             factory = { viewContext ->
                 PlayerView(viewContext).apply {

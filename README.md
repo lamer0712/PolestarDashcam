@@ -94,3 +94,8 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 - Replaced thumbnail inline playback from Android `VideoView` to AndroidX Media3 ExoPlayer, closer to the OEM Gallery player stack than the platform `VideoView`.
 - Added loading/error overlays so playback failure does not remain as an unexplained black tile.
 - Mock DVR can now serve a real MP4 with HTTP Range support for emulator playback checks.
+
+### 2026-09-12 v0.4.11
+
+- Enlarged detail-list thumbnails to match the OEM Gallery scale.
+- Fixed album cards to a consistent width and left-aligned the album list.
