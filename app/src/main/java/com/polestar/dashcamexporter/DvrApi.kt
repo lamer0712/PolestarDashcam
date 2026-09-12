@@ -35,7 +35,7 @@ data class DvrMedia(
         .digest("$url|$id|$dateTime|$size".toByteArray()).joinToString("") { "%02x".format(it) }
     val displayRange: String get() {
         if (kind == MediaKind.PHOTO || dateTime <= 0L) return name
-        val start = if (dateTime < 100_000_000_000L) dateTime * 1000 else dateTime
+        val start = (if (dateTime < 100_000_000_000L) dateTime * 1000 else dateTime) - 3_600_000L
         val end = start + duration.coerceAtLeast(0) * 1000L
         return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).let {
             "${it.format(java.util.Date(start))}-${it.format(java.util.Date(end))}"
