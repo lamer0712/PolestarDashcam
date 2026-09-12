@@ -109,3 +109,8 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-12 v0.4.13
 
 - Disabled audio rendering in the inline preview so AAOS devices with unsupported DVR PCM audio do not leave a black video tile. Full downloaded files retain their original audio track.
+
+### 2026-09-12 v0.4.14
+
+- Saved videos open in an in-app full-screen player with audio enabled.
+- Replaced the detail edit icon with a `선택` text button and use `×` to leave edit mode.

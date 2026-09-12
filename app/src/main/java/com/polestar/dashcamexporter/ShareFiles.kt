@@ -7,12 +7,12 @@ import androidx.core.content.FileProvider
 import java.io.IOException
 
 object ShareFiles {
-    private fun uriFor(context: Context, file: SavedMedia) = file.uri
+    fun uri(context: Context, file: SavedMedia) = file.uri
         ?: file.file?.let { FileProvider.getUriForFile(context, "${context.packageName}.files", it) }
         ?: throw IOException("공유할 파일을 찾을 수 없습니다.")
 
     fun viewIntent(context: Context, file: SavedMedia): Intent {
-        val uri = uriFor(context, file)
+        val uri = uri(context, file)
         if (file.size == 0L) throw IOException("재생할 파일을 찾을 수 없습니다.")
         return Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, file.mime)
@@ -24,7 +24,7 @@ object ShareFiles {
         require(files.isNotEmpty())
         if (files.size > 50) throw IOException("한 번에 최대 50개까지 공유할 수 있습니다.")
         if (files.any { it.size == 0L || (it.uri == null && it.file?.isFile != true) }) throw IOException("공유할 파일을 찾을 수 없습니다.")
-        val uris = ArrayList(files.map { uriFor(context, it) })
+        val uris = ArrayList(files.map { uri(context, it) })
         val types = files.map { it.mime }.distinct()
         val mime = if (types.size == 1) types.first() else {
             val families = types.map { it.substringBefore('/') }.distinct()

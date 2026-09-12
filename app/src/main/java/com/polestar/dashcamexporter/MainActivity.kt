@@ -41,12 +41,15 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -154,6 +157,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
     val currentAlbum = album
     val inDetail = currentAlbum != null || savedOpen
     val local = savedOpen
@@ -238,7 +242,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         previewKey = previewKey,
                         onToggle = ::toggle,
                         onPreview = { previewKey = if (previewKey == it) null else it },
-                        onOpen = onOpen,
+                        onOpen = { file ->
+                            if (file.mime.startsWith("video/")) fullScreenSaved = file else onOpen(file)
+                        },
                         onMore = { currentAlbum?.let(controller::more) },
                         onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) }
                     )
@@ -247,6 +253,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 }
             }
         }
+    }
+    fullScreenSaved?.let { file ->
+        FullScreenVideo(file = file, onDismiss = { fullScreenSaved = null })
     }
 }
 
@@ -267,8 +276,16 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (inDetail) IconButton(onClick = onEdit, modifier = Modifier.size(52.dp)) {
-                Text(if (editMode) "✓" else "✎", color = Color.White, fontSize = 42.sp)
+            if (inDetail) {
+                if (editMode) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(64.dp)) {
+                        Text("×", color = Color.White, fontSize = 42.sp)
+                    }
+                } else {
+                    TextButton(onClick = onEdit, modifier = Modifier.height(56.dp)) {
+                        Text("선택", color = Color(0xFFA3F0D5), fontSize = 24.sp)
+                    }
+                }
             } else {
                 IconButton(onClick = onChooseFolder, enabled = !busy, modifier = Modifier.size(56.dp)) {
                     Text("⚙", fontSize = 36.sp, color = Color(0xFFA3F0D5))
@@ -498,6 +515,64 @@ private fun InlineVideo(url: String) {
         failureText?.let { message ->
             Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
                 Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
+            }
+        }
+    }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val uri = remember(file.key) { ShareFiles.uri(context, file) }
+    val player = remember(uri) {
+        val httpFactory = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(60_000)
+            .setReadTimeoutMs(60_000)
+            .setUserAgent("Gallery+")
+        val dataSourceFactory = DefaultDataSource.Factory(context, httpFactory)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build().apply {
+                playWhenReady = true
+                setMediaItem(MediaItem.fromUri(uri))
+                prepare()
+            }
+    }
+    DisposableEffect(player) { onDispose { player.release() } }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { viewContext ->
+                        PlayerView(viewContext).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            setShutterBackgroundColor(android.graphics.Color.BLACK)
+                            this.player = player
+                        }
+                    },
+                    update = { view -> if (view.player !== player) view.player = player },
+                    modifier = Modifier.fillMaxSize()
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(18.dp).size(64.dp)
+                ) { Text("×", color = Color.White, fontSize = 52.sp) }
+                Text(
+                    file.name,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
+                )
             }
         }
     }
