@@ -1,8 +1,8 @@
 # 검증 기록
 
-검증일: 2026-09-11. 프로젝트: `/Users/home/PolestarDashcamExporter`.
+검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
 
-0.2.0 보정: 앱 실행 시 DVR에 자동 연결하고 썸네일 갤러리 UI에서 선택 파일을 공용 미디어 폴더에 자동 게시하도록 변경했습니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
+0.3.0 보정: OEM 갤러리의 앨범 중심 화면을 반영하고, 상단 ▣ 버튼으로 고른 SAF 폴더를 기억해 다운로드 파일을 공용 미디어 폴더와 해당 폴더에 자동 복사하도록 변경했습니다. 저장된 영상은 설치된 동영상 앱으로 재생할 수 있습니다. 32 MiB Range 이어받기, bounded Range 403 대체, DVR 세션 쿠키 유지도 포함합니다.
 
 ## 완료
 
@@ -19,6 +19,7 @@
 | 실제 SAF 폴더 복사 | `normal_000.mp4` 2 MiB 복사, 앱 내부 파일 크기 재조회 검증 후 `폴더 복사 1/1개 완료` 표시 |
 | 실제 Android 공유 시트 실행 | 성공. 에뮬레이터에 영상 공유 대상 앱이 없어 `No apps can perform this action` 표시 |
 | iCloud Drive APK 복사 | 원본/프로젝트 artifacts/iCloud 복사본 SHA-256 일치 |
+| 사용자 지정 폴더 설정 | SAF 폴더 URI를 영속 권한으로 저장하고 다음 다운로드부터 자동 복사 |
 
 단위 테스트는 OEM 스키마·누락/오류 응답·한글/공백/특수문자 URL·경로 순회 차단·정확한 페이지 query·64비트 크기·분류 불일치·바이트 보존·동명 파일 분리·완료 파일 재사용·HTTP 오류/redirect·HTML 오류 문서·크기 불일치·취소 임시 파일 정리·빈/잘린 스트림·chunked 다운로드·모드 요청과 readback을 검사합니다.
 
@@ -34,12 +35,12 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 ## 제공 APK
 
-파일명: `PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
+파일명: `PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
 
-- 크기: 20,879,178 bytes (약 19.9 MiB)
-- 프로젝트 사본: `artifacts/PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
-- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.2.0-20260911-2337.apk`
-- SHA-256: `c283ce6a13b4e3f57b07400dffcbf8ce28953df2550d2b43122b5a5bfc077026`
+- 크기: 20,896,010 bytes (약 19.9 MiB)
+- iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
+- 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
+- SHA-256: `cff7efb659d6a547db77e7653e50adba8963dc61a7b60df7ed6bb16e7370a3dd`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다.
 

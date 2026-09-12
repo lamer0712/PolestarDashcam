@@ -6,7 +6,7 @@ Polestar 4의 내부 DVR HTTP API에서 파일을 조회하고, 선택한 영상
 
 1. 차량이 주차된 상태에서 앱을 엽니다. 앱이 백그라운드에서 DVR에 자동 연결합니다. 기본 주소는 `http://198.18.37.20`입니다.
 2. **일반 / 긴급 / 사진** 탭에서 파일을 선택합니다. 각 분류를 처음 50개씩 요청하고, **다음 목록 불러오기**로 추가 조회합니다. 전체 선택은 현재 탭에 불러온 파일에만 적용됩니다.
-3. **선택 항목 저장**을 누릅니다. 파일은 `Movies/Polestar Dashcam/{normal|emergency}` 또는 `Pictures/Polestar Dashcam/photo`에 자동 저장됩니다. 다운로드는 foreground service로 실행됩니다.
+3. 필요하면 상단 ▣ 버튼에서 원하는 폴더를 한 번 선택합니다. 이후 **선택 항목 저장** 시 파일은 Android 갤러리 공용 폴더와 선택한 폴더에 자동으로 복사됩니다. 다운로드는 foreground service로 실행됩니다.
 4. **저장됨** 탭에서 썸네일의 **▶ 재생**을 누르면 차량에 설치된 동영상 앱으로 영상을 볼 수 있습니다. 파일을 선택하면 공유 시트에서 메일·파일 전송 앱으로 보낼 수 있습니다.
 5. USB가 필요하면 저장됨 탭에서 파일을 선택해 **USB 저장**을 이용합니다. 일반적인 경우에는 이미 공용 미디어 폴더에 저장된 파일을 차량 파일 앱에서 바로 복사할 수 있습니다.
 
@@ -24,7 +24,7 @@ USB 저장은 Android Storage Access Framework를 사용합니다. AAOS 제조�
 
 ## 저장과 오류 처리
 
-- 원본 보관 위치: 앱 전용 `files/exports/{normal|emergency|photo}/{파일 식별 해시}/{파일명}`. 완료 후 공용 미디어 폴더에도 자동 게시합니다.
+- 원본 보관 위치: 앱 전용 `files/exports/{normal|emergency|photo}/{파일 식별 해시}/{파일명}`. 완료 후 공용 미디어 폴더와 사용자가 지정한 SAF 폴더에 자동 게시합니다.
 - 앱 재시작 후 완료 파일을 다시 표시합니다. 공용 미디어 폴더에 게시된 파일은 앱 데이터와 별도로 남습니다.
 - 파일은 128 KiB 버퍼로 스트리밍합니다. `.part` 임시 파일과 32 MiB HTTP Range 구간을 사용해 큰 파일의 연결 끊김을 이어받고, Content-Length·Content-Range 및 목록 크기(있는 경우)가 일치한 뒤 최종 이름으로 이동합니다.
 - 중복 다운로드는 같은 URL·ID·시간·크기인 기존 완료 파일을 재사용합니다. 다른 분류의 동명 파일은 분리합니다.
@@ -47,11 +47,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.polestar.dashcamexporter/.MainActivity
 ```
 
-Android 11(API 30) 이상이며 target SDK는 35입니다. 패키지는 `com.polestar.dashcamexporter`, 표시 이름은 **Dashcam Exporter**, 버전은 **0.2.0**입니다. Debug 서명 APK로 제공하며 OEM 시스템 UID나 OEM 서명을 사용하지 않습니다. 자동차 런처의 노출 및 일반 앱 설치 허용 여부는 차량 정책에 따릅니다.
+Android 11(API 30) 이상이며 target SDK는 35입니다. 패키지는 `com.polestar.dashcamexporter`, 표시 이름은 **Dashcam Exporter**, 버전은 **0.3.0**입니다. Debug 서명 APK로 제공하며 OEM 시스템 UID나 OEM 서명을 사용하지 않습니다. 자동차 런처의 노출 및 일반 앱 설치 허용 여부는 차량 정책에 따릅니다.
 
 0.1.1부터 기본 조회 모드에서는 차량별 `status` JSON에 `usable`/`recording` 필드가 없어도 HTTP/JSON 응답 성공으로 연결을 확인하고 실제 `mediaDirList`를 계속 호출합니다. 상태 필드는 root 또는 `state`, `status`, `data`, `result` 객체에 있을 때 표시합니다. 목록 모드를 직접 변경할 때만 안전한 복귀를 위해 `usable`/`recording`을 필수로 확인합니다. 0.1.2부터 `mediaDirList`가 `Not in file-list mode`(403/409)로 응답하면 목록 모드로 자동 재시도하고 완료 후 `normal` 복귀를 확인합니다. 0.1.3부터 목록 항목에 DVR 썸네일을 표시하고 60 MiB를 넘는 파일도 Range 이어받기로 재시도합니다. 0.1.4부터 DVR이 bounded Range를 403으로 거부하면 open-ended Range로 자동 재시도하며, DVR 세션 쿠키도 유지합니다. 0.2.0부터 앱 실행 시 자동 연결하고 공용 미디어 폴더에 바로 저장하며 저장된 영상을 재생할 수 있습니다.
 
-필수 권한은 인터넷·foreground data sync·wake lock입니다. Android 13 이상에서는 전송 알림 권한을 요청합니다. 알림을 거부해도 전송 자체는 가능합니다. 광범위 저장소 권한, 카메라, 위치, 차량 vendor 권한은 요청하지 않습니다.
+필수 권한은 인터넷·foreground data sync·wake lock입니다. Android 13 이상에서는 전송 알림 권한을 요청합니다. 알림을 거부해도 전송 자체는 가능합니다. 원하는 폴더를 지정할 때만 Android 시스템 폴더 선택기의 쓰기 권한을 사용하며, 광범위 저장소 권한·카메라·위치·차량 vendor 권한은 요청하지 않습니다.
 
 ## 모의 DVR / 에뮬레이터 테스트
 
