@@ -351,34 +351,26 @@ class ExportController(private val app: Application) {
     }
 
     private fun fetchThumbnails(api: DvrApi, items: List<DvrMedia>) {
-        var consecutiveFailures = 0
         for ((index, item) in items.withIndex()) {
             stop.check()
             val existing = thumbnailStore.existing(item)
             if (existing != null) {
                 mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to existing.absolutePath)) }
-                consecutiveFailures = 0
                 continue
             }
             mutable.update { it.copy(progressText = "${item.kind.label} 썸네일 ${index + 1}/${items.size} 받는 중") }
             try {
                 val file = thumbnailStore.fetch(api, item, stop)
                 mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
-                consecutiveFailures = 0
             } catch (e: UserCancelledException) {
                 throw e
-            } catch (e: IOException) {
-                if (requiresFileListMode(e)) throw e
-                // Thumbnail generation is best-effort. Vehicle DVRs return
-                // internal error code 11 for files that have no generated frame;
-                // leave that tile without a thumbnail and continue the list.
-                if (e.message?.contains("code 11", ignoreCase = true) == true ||
-                    e.message?.contains("internal error", ignoreCase = true) == true) {
-                    consecutiveFailures = 0
-                    continue
-                }
-                consecutiveFailures++
-                if (consecutiveFailures >= 3) return
+            } catch (e: UserCancelledException) {
+                throw e
+            } catch (_: Exception) {
+                // Thumbnail generation is best-effort. Any DVR thumbnail failure
+                // (including internal error code 11) is ignored for this item so
+                // all file-list entries remain visible and no error dialog appears.
+                continue
             }
         }
     }

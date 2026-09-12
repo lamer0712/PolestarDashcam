@@ -152,7 +152,7 @@ class DvrApi(val base: String) {
 
     fun thumbnail(media: DvrMedia): ByteArray {
         val id = URLEncoder.encode(media.id, Charsets.UTF_8.name()).replace("+", "%20")
-        val connection = connection("$base/thumbnail?app=gallery&mediaType=${media.kind.api}&id=$id")
+        val connection = connection("$base/thumbnail?app=gallery&mediaType=${media.kind.api}&id=$id&time=${media.dateTime}")
         try {
             requireOk(connection)
             val contentType = connection.contentType.orEmpty().lowercase()
