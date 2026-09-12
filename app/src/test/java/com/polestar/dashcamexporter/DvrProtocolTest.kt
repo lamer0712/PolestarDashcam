@@ -24,12 +24,14 @@ class DvrProtocolTest {
     private lateinit var base: String
     private lateinit var root: File
     private val requests = mutableListOf<String>()
+    private val rangeHeaders = mutableListOf<String?>()
     private val routes = mutableMapOf<String, (RecordedRequest) -> MockResponse>()
     @Before fun setup() {
         server = MockWebServer()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 synchronized(requests) { requests += "${request.method} ${request.path}" }
+                synchronized(rangeHeaders) { rangeHeaders += request.getHeader("Range") }
                 return routes[request.path!!.substringBefore('?')]?.invoke(request) ?: MockResponse().setResponseCode(404)
             }
         }
@@ -177,13 +179,14 @@ class DvrProtocolTest {
         val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
         assertArrayEquals(payload, saved.file!!.readBytes())
         assertTrue(requests.count { it.startsWith("GET /media/clip.mp4") } >= 3)
+        assertTrue(rangeHeaders.filterNotNull().all { it.matches(Regex("bytes=\\d+-")) })
     }
-    @Test fun retriesForbiddenBoundedRangeWithOpenEndedRange() {
+    @Test fun usesOemStyleOpenEndedRangesForLargeDownloads() {
         val payload = ByteArray(40 * 1024 * 1024 + 17) { (it * 13 % 251).toByte() }
         routes["/media/clip.mp4"] = { request ->
             val range = request.getHeader("Range").orEmpty()
             val start = range.substringAfter("bytes=", "0-").substringBefore("-").toIntOrNull() ?: 0
-            if (start > 0 && !range.endsWith("-")) MockResponse().setResponseCode(403)
+            if (range.isBlank() || !range.matches(Regex("bytes=\\d+-"))) MockResponse().setResponseCode(403)
             else {
                 val end = minOf(payload.lastIndex, start + 32 * 1024 * 1024 - 1)
                 MockResponse().setResponseCode(206)
@@ -194,7 +197,8 @@ class DvrProtocolTest {
         }
         val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
         assertArrayEquals(payload, saved.file!!.readBytes())
-        assertTrue(requests.any { it.startsWith("GET /media/clip.mp4") })
+        val mediaRanges = rangeHeaders.filterNotNull()
+        assertEquals(listOf("bytes=0-", "bytes=33554432-"), mediaRanges)
     }
     @Test fun preservesDvrSessionCookieAcrossRangeRequests() {
         val previous = CookieHandler.getDefault()
