@@ -535,11 +535,12 @@ private fun InlineVideo(url: String) {
     var failureText by remember(url) { mutableStateOf<String?>(null) }
     var ready by remember(url) { mutableStateOf(false) }
     val player = remember(url) {
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
             .setReadTimeoutMs(60_000)
             // Match the OEM player's first request: a direct GET with no synthetic
             // Range or custom User-Agent. It adds Range only when seeking/resuming.
+        val dataSourceFactory = PlaybackCache.factory(context, httpDataSourceFactory)
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(buildUponParameters().setRendererDisabled(C.TRACK_TYPE_AUDIO, true))
         }

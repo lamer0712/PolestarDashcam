@@ -181,3 +181,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.30
 
 - Rechecked the OEM streaming path: playback uses a local proxy cache with direct GET first and open-ended Range only for cache misses/resumes; downloads retain the tested Range strategy and short-200 recovery.
+
+### 2026-09-13 v0.4.31
+
+- Added a 512 MiB Media3 local playback cache so DVR playback follows the OEM proxy-cache pattern.

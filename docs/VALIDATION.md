@@ -166,3 +166,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.30 OEM streaming analysis
 
 - OEM playback uses `HttpProxyCacheServer`/`HttpUrlSource`: direct GET at offset zero, then `Range: bytes=offset-` for cache misses and resumed reads.
+
+## 2026-09-13 v0.4.31 playback-cache validation
+
+- Inline playback uses a persistent 512 MiB Media3 `SimpleCache` with an HTTP upstream, matching the OEM local proxy-cache architecture.
