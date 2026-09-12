@@ -407,7 +407,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 309.dp),
+            columns = GridCells.Adaptive(minSize = 370.dp),
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp),

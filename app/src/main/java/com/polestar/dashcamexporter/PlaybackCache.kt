@@ -3,6 +3,7 @@ package com.polestar.dashcamexporter
 import android.content.Context
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -21,9 +22,15 @@ object PlaybackCache {
         ).also { cache = it }
     }
 
-    fun factory(context: Context, upstream: DataSource.Factory): DataSource.Factory =
-        CacheDataSource.Factory()
+    fun factory(context: Context, upstream: DataSource.Factory): DataSource.Factory {
+        val openEndedUpstream = ResolvingDataSource.Factory(upstream) { spec ->
+            // The DVR rejects bounded ranges with HTTP 403. OEM Gallery sends
+            // only bytes=offset- for every cache miss and resume request.
+            spec.buildUpon().setLength(androidx.media3.common.C.LENGTH_UNSET.toLong()).build()
+        }
+        return CacheDataSource.Factory()
             .setCache(cache(context))
-            .setUpstreamDataSourceFactory(upstream)
+            .setUpstreamDataSourceFactory(openEndedUpstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
 }

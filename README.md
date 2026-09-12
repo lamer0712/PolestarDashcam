@@ -197,3 +197,11 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.34
 
 - Inline playback errors now show the concrete HTTP response code and server detail instead of only `ERROR_CODE_IO_BAD_HTTP_STATUS`.
+
+### 2026-09-13 v0.4.35
+
+- Forced playback cache misses to use OEM-compatible open-ended ranges, preventing Media3 bounded `Range` requests that the DVR rejects with HTTP 403.
+
+### 2026-09-13 v0.4.36
+
+- Increased the adaptive video grid card minimum width to 370dp so vehicle layouts show five cards per row instead of six.

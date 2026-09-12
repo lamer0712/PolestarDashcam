@@ -182,3 +182,11 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.34 playback-error diagnostics
 
 - Media3 HTTP playback errors display the concrete response code and response detail on the video tile.
+
+## 2026-09-13 v0.4.35 playback-range validation
+
+- Playback cache upstream requests now unset DataSpec length so every DVR resume uses `bytes=offset-` rather than bounded ranges.
+
+## 2026-09-13 v0.4.36 vehicle-grid validation
+
+- Adaptive video grid minimum width is 370dp, targeting five cards per row on the vehicle display.
