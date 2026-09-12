@@ -220,6 +220,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     val fraction = state.fraction
                     if (fraction == null) {
                         LinearProgressIndicator(Modifier.weight(1f))
+                        Text("--", color = Color.White, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.widthIn(min = 52.dp))
                     } else {
                         LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
                         Text("${(fraction * 100f).roundToInt()}%", color = Color.White, fontWeight = FontWeight.SemiBold,
@@ -682,6 +684,7 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
                             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                             setShutterBackgroundColor(android.graphics.Color.BLACK)
                             this.player = player
+                            post { showController() }
                         }
                     },
                     update = { view -> if (view.player !== player) view.player = player },
