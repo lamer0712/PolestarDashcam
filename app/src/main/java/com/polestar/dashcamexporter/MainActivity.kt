@@ -492,14 +492,8 @@ private fun InlineVideo(url: String) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
             .setReadTimeoutMs(60_000)
-            // The vehicle DVR rejects an initial media request without an open-ended
-            // Range header, even though the byte position is zero.
-            .setDefaultRequestProperties(mapOf(
-                "Range" to "bytes=0-",
-                "Accept-Encoding" to "identity",
-                "Connection" to "close"
-            ))
-            .setUserAgent("Gallery+")
+            // Match the OEM player's first request: a direct GET with no synthetic
+            // Range or custom User-Agent. It adds Range only when seeking/resuming.
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(buildUponParameters().setRendererDisabled(C.TRACK_TYPE_AUDIO, true))
         }
@@ -553,7 +547,7 @@ private fun InlineVideo(url: String) {
         }
         failureText?.let { message ->
             Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
-                Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
+            Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
             }
         }
     }

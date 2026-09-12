@@ -213,6 +213,14 @@ class DownloadStore(private val root: File) {
                         connectionCount = 0
                         continue
                     }
+                    if (!useRanges && isForbidden(e) && !rangeFallbackTried) {
+                        // Some firmware rejects the OEM-style direct stream for large
+                        // files. Resume the bytes already received with open-ended Range.
+                        useRanges = true
+                        rangeFallbackTried = true
+                        failuresWithoutProgress = 0
+                        continue
+                    }
                     if (!useRanges && partial.length() > before && !rangeFallbackTried) {
                         // A direct stream can be cut off by the DVR's response-size limit;
                         // resume it with the open-ended ranges used by the OEM player.

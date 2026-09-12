@@ -125,3 +125,8 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.20 inline playback request validation
 
 - Inline Media3 playback sends `Range: bytes=0-` with identity encoding, matching the working DVR download/player request path.
+
+## 2026-09-13 v0.4.21 DVR compatibility validation
+
+- Inline playback now begins with the OEM direct GET behavior; resumed reads use Range only after a seek or interrupted stream.
+- Large-file download retries a direct-stream HTTP 403 with an open-ended Range request from the current byte offset.

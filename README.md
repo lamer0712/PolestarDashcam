@@ -139,3 +139,8 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.20
 
 - Matched the OEM open-ended `Range: bytes=0-` request for inline DVR playback so vehicle firmware that rejects an initial request without Range can serve the video.
+
+### 2026-09-13 v0.4.21
+
+- Matched the OEM direct GET for the first inline playback request and only relies on Range for resumed playback.
+- Added a direct-stream-to-Range fallback when a DVR returns HTTP 403 during a large-file transfer.
