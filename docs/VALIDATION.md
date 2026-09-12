@@ -134,3 +134,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.22 large-file retry validation
 
 - Partial files are preserved during resumed Range errors, and resumed requests no longer force `Connection: close`.
+
+## 2026-09-13 v0.4.23 saved-thumbnail validation
+
+- Saved video tiles extract a frame with `MediaMetadataRetriever`; saved photos use the local image bytes for their thumbnail.

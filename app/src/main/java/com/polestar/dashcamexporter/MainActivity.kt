@@ -2,6 +2,7 @@ package com.polestar.dashcamexporter
 
 import android.Manifest
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -450,8 +451,14 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, p
 
 @Composable
 private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val thumbnail by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, item.key) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            savedThumbnail(context, item)?.asImageBitmap()
+        }
+    }
     Column(Modifier.clickable(onClick = if (editMode) onToggle else onOpen)) {
-        SelectableThumbnail(path = null, selected = selected)
+        SelectableThumbnail(path = null, selected = selected, thumbnail = thumbnail)
         Text(item.name, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
@@ -461,7 +468,9 @@ private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, on
 }
 
 @Composable
-private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boolean = false, videoUrl: String? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
+private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boolean = false, videoUrl: String? = null,
+                                thumbnail: androidx.compose.ui.graphics.ImageBitmap? = null,
+                                overlay: @Composable BoxScope.() -> Unit = {}) {
     Surface(
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
@@ -470,6 +479,8 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
+            else if (thumbnail != null) Image(thumbnail, contentDescription = "썸네일", contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize())
             else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
@@ -480,6 +491,24 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
             overlay()
         }
     }
+}
+
+private fun savedThumbnail(context: android.content.Context, item: SavedMedia): android.graphics.Bitmap? {
+    val isVideo = item.mime.startsWith("video/") || item.name.substringAfterLast('.', "").lowercase() in
+        setOf("mp4", "m4v", "mov", "ts", "avi")
+    if (!isVideo) {
+        return try {
+            item.file?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                ?: item.uri?.let { context.contentResolver.openFileDescriptor(it, "r")?.use { fd -> BitmapFactory.decodeFileDescriptor(fd.fileDescriptor) } }
+        } catch (_: Exception) { null }
+    }
+    return try {
+        MediaMetadataRetriever().use { retriever ->
+            if (item.file != null) retriever.setDataSource(item.file.absolutePath)
+            else if (item.uri != null) retriever.setDataSource(context, item.uri)
+            retriever.getFrameAtTime(1_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        }
+    } catch (_: Exception) { null }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)

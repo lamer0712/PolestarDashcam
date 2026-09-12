@@ -149,3 +149,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 
 - Preserved the partial file when a resumed Range request receives HTTP 403 instead of deleting up to 60 MiB already received.
 - Removed the forced `Connection: close` header from resumed DVR requests.
+
+### 2026-09-13 v0.4.23
+
+- Added local video and photo frame extraction for Saved thumbnails so downloaded files show their own previews.
