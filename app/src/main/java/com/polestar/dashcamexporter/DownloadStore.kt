@@ -132,6 +132,7 @@ class DownloadStore(private val root: File) {
         var useRanges = expectedTotal in 1L..MAX_DIRECT_STREAM_BYTES
         var directFallbackTried = false
         var rangeFallbackTried = false
+        var galleryQueryFallbackTried = false
         var failuresWithoutProgress = 0
         var connectionCount = 0
         var completed = false
@@ -147,7 +148,10 @@ class DownloadStore(private val root: File) {
                 if (++connectionCount > MAX_CONNECTIONS)
                     throw IOException("긴 파일 다운로드 연결 횟수가 너무 많습니다.")
 
-                val connection = DvrApi.connection(media.url)
+                val requestUrl = if (galleryQueryFallbackTried) {
+                    if (media.url.contains("?")) "${media.url}&app=gallery" else "${media.url}?app=gallery"
+                } else media.url
+                val connection = DvrApi.connection(requestUrl)
                 if (useRanges && expectedTotal > 0) {
                     // Match the OEM Gallery playback path. The DVR accepts open-ended ranges
                     // (bytes=start-) more reliably than bounded byte ranges (bytes=start-end).
@@ -206,6 +210,14 @@ class DownloadStore(private val root: File) {
                 } catch (e: UserCancelledException) {
                     throw e
                 } catch (e: IOException) {
+                    if (isForbidden(e) && expectedTotal > MAX_DIRECT_STREAM_BYTES && !galleryQueryFallbackTried) {
+                        // A few DVR firmware builds gate media URLs on the gallery
+                        // query context even though the OEM path normally omits it.
+                        galleryQueryFallbackTried = true
+                        failuresWithoutProgress = 0
+                        connectionCount = 0
+                        continue
+                    }
                     if (useRanges && isForbidden(e) && !directFallbackTried && before == 0L) {
                         // Some DVR firmware rejects the second open-ended range after a
                         // large response. Match the OEM Gallery's direct streaming path
