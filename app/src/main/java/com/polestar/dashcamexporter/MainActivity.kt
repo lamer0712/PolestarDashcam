@@ -231,12 +231,18 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 } else if (inDetail) {
                     Text("${selection.size}개 선택", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
-                        OutlinedButton(onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("삭제") }
-                        OutlinedButton(onClick = { onFolder(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("USB 저장") }
-                        Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("공유") }
+                        Button(
+                            onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) },
+                            enabled = selection.isNotEmpty() && !state.busy,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFB3261E),
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFF55201D),
+                                disabledContentColor = Color(0xFFBBA6A4)
+                            ),
+                            modifier = Modifier.heightIn(min = 52.dp)
+                        ) { Text("삭제") }
+                        // USB 저장과 공유는 차량 검증 전까지 임시로 숨깁니다.
                     } else {
                         Button(onClick = {
                             onDownload(remote.filter { it.key in selection })
@@ -465,7 +471,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             }
             if (keys.isEmpty() && !state.busy) item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (local) "No saved files" else "No files", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (local) "No saved files" else "No files", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
                     Text(if (local) "Export videos from an album first." else "The DVR did not return files for this album.",
                         color = Color(0xFFB8B8B8), fontSize = 18.sp)
