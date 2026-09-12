@@ -492,6 +492,13 @@ private fun InlineVideo(url: String) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
             .setReadTimeoutMs(60_000)
+            // The vehicle DVR rejects an initial media request without an open-ended
+            // Range header, even though the byte position is zero.
+            .setDefaultRequestProperties(mapOf(
+                "Range" to "bytes=0-",
+                "Accept-Encoding" to "identity",
+                "Connection" to "close"
+            ))
             .setUserAgent("Gallery+")
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(buildUponParameters().setRendererDisabled(C.TRACK_TYPE_AUDIO, true))

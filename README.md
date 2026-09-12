@@ -135,3 +135,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.19
 
 - Grouped DVR videos by recording date with a full-width date separator in the detail list.
+
+### 2026-09-13 v0.4.20
+
+- Matched the OEM open-ended `Range: bytes=0-` request for inline DVR playback so vehicle firmware that rejects an initial request without Range can serve the video.

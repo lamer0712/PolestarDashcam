@@ -121,3 +121,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.19 date-group validation
 
 - DVR video tiles are grouped by `yyyy-MM-dd` with a full-width date header for each recording date.
+
+## 2026-09-13 v0.4.20 inline playback request validation
+
+- Inline Media3 playback sends `Range: bytes=0-` with identity encoding, matching the working DVR download/player request path.
