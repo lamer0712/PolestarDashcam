@@ -185,3 +185,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.31
 
 - Added a 512 MiB Media3 local playback cache so DVR playback follows the OEM proxy-cache pattern.
+
+### 2026-09-13 v0.4.32
+
+- Files larger than 60 MiB now begin with the OEM-style direct stream, then resume from the received offset in app-controlled 32 MiB chunks using open-ended Range requests.

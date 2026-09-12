@@ -126,7 +126,10 @@ class DownloadStore(private val root: File) {
         val partial = File(file.parentFile, "${file.name}.part")
         partial.delete()
         var expectedTotal = media.size
-        var useRanges = expectedTotal > 0L
+        // The DVR commonly caps a direct response around 60 MiB. For larger
+        // files, let the first OEM-style stream run and switch to 32 MiB local
+        // chunks with open-ended Range only when that stream ends early.
+        var useRanges = expectedTotal in 1L..MAX_DIRECT_STREAM_BYTES
         var directFallbackTried = false
         var rangeFallbackTried = false
         var failuresWithoutProgress = 0
@@ -271,6 +274,7 @@ class DownloadStore(private val root: File) {
 
     companion object {
         private const val RANGE_CHUNK_BYTES = 32L * 1024 * 1024
+        private const val MAX_DIRECT_STREAM_BYTES = 60L * 1024 * 1024
         private const val MAX_STALLED_RETRIES = 4
         private const val MAX_CONNECTIONS = 512
     }

@@ -170,3 +170,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.31 playback-cache validation
 
 - Inline playback uses a persistent 512 MiB Media3 `SimpleCache` with an HTTP upstream, matching the OEM local proxy-cache architecture.
+
+## 2026-09-13 v0.4.32 large-file chunk validation
+
+- Files above 60 MiB start with a direct stream and switch to 32 MiB local reads plus open-ended Range resume after an early EOF.
