@@ -10,6 +10,8 @@
 
 0.4.14 보정: Saved 영상 클릭 시 전체 화면 플레이어를 열고 오디오 트랙을 활성화했습니다. 세부 화면 편집 진입은 `선택` 글씨 버튼, 편집 종료는 `×` 버튼으로 바꿨습니다.
 
+0.4.15 보정: 앱 상단 갤러리 아이콘과 Albums 아이콘을 유니코드 글리프 대신 직접 그린 아이콘으로 교체해 AAOS 글꼴에 따른 모양 차이를 없앴습니다.
+
 0.4.10 보정: 썸네일 인라인 재생을 Android 기본 VideoView에서 AndroidX Media3 ExoPlayer로 변경했습니다. 재생 준비 중/실패 상태를 타일에 표시해 검정 화면만 남지 않게 했고, mock DVR은 실제 MP4 및 HTTP Range 응답을 지원합니다.
 
 0.4.9 보정: 원 갤러리 APK에서 확인한 대용량 읽기 방식에 맞춰 DVR 다운로드 Range를 `bytes=offset-` open-ended 형태로만 보내도록 변경했습니다. 앱 내부에서는 32 MiB 단위로 읽고 재연결해 60 MiB 이상 파일의 스트림 끊김과 bounded Range 403을 피합니다.
@@ -102,3 +104,8 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 - Replaced inline tile playback with AndroidX Media3 ExoPlayer and added loading/error overlays.
 - Mock DVR now supports `--video-mp4` and HTTP `Range` responses so emulator playback can be validated with a real MP4 instead of synthetic transport bytes.
 - Emulator user 10 playback check succeeded with `tools/mock_dvr.py --port 8765 --video-mp4 /tmp/galleryplus-playable-test.m4v`; screenshot: `screenshots/23-exoplayer-playing-user10.png`.
+
+## 2026-09-13 v0.4.16 OEM icon validation
+
+- Header Gallery and Albums navigation now use vector resources extracted from the original OEM Gallery APK.
+- Saved uses a Chrome-style download arrow and tray icon.

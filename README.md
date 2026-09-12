@@ -114,3 +114,12 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 
 - Saved videos open in an in-app full-screen player with audio enabled.
 - Replaced the detail edit icon with a `선택` text button and use `×` to leave edit mode.
+
+### 2026-09-13 v0.4.15
+
+- Replaced font glyph gallery and album icons with drawn vector-style icons for consistent AAOS rendering.
+
+### 2026-09-13 v0.4.16
+
+- Replaced the header and Albums navigation icons with the original OEM Gallery vector resources.
+- Updated Saved to use a Chrome-style download icon with a tray.

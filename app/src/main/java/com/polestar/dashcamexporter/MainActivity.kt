@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.C
@@ -268,9 +269,11 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
             if (inDetail) {
                 Text("←", color = Color(0xFFFF7A00), fontSize = 48.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 24.dp))
             } else {
-                Surface(color = Color(0xFFE9322D), shape = RoundedCornerShape(0.dp), modifier = Modifier.size(47.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Text("▢", color = Color.White, fontSize = 34.sp) }
-                }
+                Image(
+                    painter = painterResource(R.drawable.ic_oem_gallery),
+                    contentDescription = "Gallery+",
+                    modifier = Modifier.size(47.dp)
+                )
                 Spacer(Modifier.width(31.dp))
             }
             Column(Modifier.weight(1f)) {
@@ -299,19 +302,41 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
 @Composable
 private fun GallerySidebar(savedSelected: Boolean, onAlbums: () -> Unit, onSaved: () -> Unit) {
     Column(Modifier.width(244.dp).fillMaxHeight().background(Color(0xFF181818)).padding(top = 43.dp)) {
-        SidebarItem("▭", "Albums", selected = !savedSelected, onClick = onAlbums)
-        SidebarItem("↓", "Saved", selected = savedSelected, onClick = onSaved)
+        SidebarItem(SidebarGlyph.Albums, "Albums", selected = !savedSelected, onClick = onAlbums)
+        SidebarItem(SidebarGlyph.Saved, "Saved", selected = savedSelected, onClick = onSaved)
     }
 }
 
 @Composable
-private fun SidebarItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun SidebarItem(icon: SidebarGlyph, label: String, selected: Boolean, onClick: () -> Unit) {
+    val color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8)
     Column(
         Modifier.fillMaxWidth().height(145.dp).clickable(onClick = onClick).padding(start = 31.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text(icon, color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8), fontSize = 42.sp)
-        Text(label, color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8), fontSize = 34.sp)
+        SidebarGlyphIcon(icon, color)
+        Text(label, color = color, fontSize = 34.sp)
+    }
+}
+
+private enum class SidebarGlyph { Albums, Saved }
+
+@Composable
+private fun SidebarGlyphIcon(glyph: SidebarGlyph, color: Color) {
+    if (glyph == SidebarGlyph.Albums) {
+        Icon(
+            painter = painterResource(R.drawable.ic_oem_albums),
+            contentDescription = "Albums",
+            tint = color,
+            modifier = Modifier.size(48.dp)
+        )
+    } else {
+        Icon(
+            painter = painterResource(R.drawable.ic_chrome_download),
+            contentDescription = "Saved",
+            tint = color,
+            modifier = Modifier.size(48.dp)
+        )
     }
 }
 
