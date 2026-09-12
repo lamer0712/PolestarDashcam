@@ -109,3 +109,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 - Header Gallery and Albums navigation now use vector resources extracted from the original OEM Gallery APK.
 - Saved uses a Chrome-style download arrow and tray icon.
+
+## 2026-09-13 v0.4.17 thumbnail layout validation
+
+- Video tiles use a 248dp width, approximately 80% of the previous 309dp width, with a 16:9 aspect ratio instead of a square frame.

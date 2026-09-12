@@ -459,11 +459,11 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
         border = if (selected) BorderStroke(5.dp, Color(0xFFFF7A00)) else null,
-        modifier = Modifier.size(309.dp)
+        modifier = Modifier.width(248.dp).aspectRatio(16f / 9f)
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
-            else Thumbnail(path = path, width = 309.dp, height = 309.dp, radius = 0.dp)
+            else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
                     Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
@@ -511,7 +511,7 @@ private fun InlineVideo(url: String) {
     DisposableEffect(player) {
         onDispose { player.release() }
     }
-    Box(Modifier.size(309.dp)) {
+    Box(Modifier.width(248.dp).aspectRatio(16f / 9f)) {
         AndroidView(
             factory = { viewContext ->
                 PlayerView(viewContext).apply {

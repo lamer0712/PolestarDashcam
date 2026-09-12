@@ -123,3 +123,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 
 - Replaced the header and Albums navigation icons with the original OEM Gallery vector resources.
 - Updated Saved to use a Chrome-style download icon with a tray.
+
+### 2026-09-13 v0.4.17
+
+- Reduced video thumbnail width to 80% of the previous size and changed the tile height to the 16:9 video aspect ratio.
