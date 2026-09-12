@@ -492,13 +492,13 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
         border = if (selected) BorderStroke(5.dp, Color(0xFFFF7A00)) else null,
-        modifier = Modifier.width(248.dp).aspectRatio(16f / 9f)
+        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
             else if (thumbnail != null) Image(thumbnail, contentDescription = "썸네일", contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize())
-            else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp)
+            else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp, fillFrame = true)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
                     Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
@@ -565,7 +565,7 @@ private fun InlineVideo(url: String) {
     DisposableEffect(player) {
         onDispose { player.release() }
     }
-    Box(Modifier.width(248.dp).aspectRatio(16f / 9f)) {
+    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
         AndroidView(
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
@@ -689,16 +689,18 @@ private fun FullScreenPhoto(file: SavedMedia, onDismiss: () -> Unit) {
 @Composable
 private fun Thumbnail(path: String?, width: androidx.compose.ui.unit.Dp = 72.dp,
                       height: androidx.compose.ui.unit.Dp = 72.dp,
-                      radius: androidx.compose.ui.unit.Dp = 8.dp) {
+                      radius: androidx.compose.ui.unit.Dp = 8.dp,
+                      fillFrame: Boolean = false) {
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, path) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             path?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
         }
     }
+    val frameModifier = if (fillFrame) Modifier.fillMaxSize() else Modifier.size(width = width, height = height)
     if (bitmap != null) Image(bitmap!!, contentDescription = "썸네일", contentScale = ContentScale.Crop,
-        modifier = Modifier.size(width = width, height = height).clip(RoundedCornerShape(radius)))
+        modifier = frameModifier.clip(RoundedCornerShape(radius)))
     else Surface(color = Color(0xFF252525), shape = RoundedCornerShape(radius),
-        modifier = Modifier.size(width = width, height = height)) {
+        modifier = frameModifier) {
         Box(contentAlignment = Alignment.Center) { Text("▱", color = Color(0xFF777777), fontSize = 72.sp) }
     }
 }

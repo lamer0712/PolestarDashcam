@@ -173,3 +173,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.28
 
 - Persisted transfer errors so a foreground-service interruption still appears as a dialog after returning to the app.
+
+### 2026-09-13 v0.4.29
+
+- Expanded video thumbnails to the full width of each grid card while preserving the 16:9 height ratio.

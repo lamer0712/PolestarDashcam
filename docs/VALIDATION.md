@@ -158,3 +158,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.28 service-error validation
 
 - Foreground-service interruptions persist an error message and show it when the app screen is reopened.
+
+## 2026-09-13 v0.4.29 thumbnail-card validation
+
+- Video thumbnails fill their grid card width and use an automatically calculated 16:9 height.
