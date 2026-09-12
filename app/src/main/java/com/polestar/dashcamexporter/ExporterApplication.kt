@@ -378,11 +378,19 @@ class ExportController(private val app: Application) {
             val api = DvrApi(config.base)
             sessionWithAutomaticMode(api, config.useListMode) {
                 batch(items, "다운로드") { item, index ->
-                    val saved = store.download(item, stop) { done, total -> progress(index, items.size, item.name, done, total) }
-                    PublicMediaStore.publish(app, saved, stop) { done, total ->
-                        progress(index, items.size, "공용 폴더 저장 · ${item.name}", done, total)
+                    // Present one continuous per-file bar across the three physical
+                    // writes instead of restarting it for each destination.
+                    fun phase(start: Float, weight: Float, label: String) =
+                        { done: Long, total: Long ->
+                            val ratio = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
+                            progress(index, items.size, label, ((start + weight * ratio) * 1000).toLong(), 1000)
+                        }
+                    val saved = store.download(item, stop, phase(0f, 0.8f, item.name))
+                    PublicMediaStore.publish(app, saved, stop, phase(0.8f, 0.1f, item.name))
+                    state.value.exportTree?.let { tree ->
+                        copyOneToFolder(saved, tree, index, items.size, phase(0.9f, 0.1f, item.name))
                     }
-                    state.value.exportTree?.let { tree -> copyOneToFolder(saved, tree, index, items.size) }
+                    progress(index, items.size, item.name, 1000, 1000)
                     mutable.update { it.copy(saved = visibleSaved()) }
                 }
             }
@@ -485,7 +493,8 @@ class ExportController(private val app: Application) {
     } ?: item.file?.inputStream() ?: throw IOException("파일을 찾을 수 없습니다: ${item.name}")
 
     /** Copies one completed item to the remembered SAF folder during download. */
-    private fun copyOneToFolder(item: SavedMedia, tree: Uri, index: Int, count: Int) {
+    private fun copyOneToFolder(item: SavedMedia, tree: Uri, index: Int, count: Int,
+                                progressCallback: ((Long, Long) -> Unit)? = null) {
         val resolver = app.contentResolver
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
@@ -505,7 +514,9 @@ class ExportController(private val app: Application) {
         try {
             val output = resolver.openOutputStream(document, "w") ?: throw IOException("선택한 저장 폴더를 열 수 없습니다.")
             output.use { sink -> openSavedInput(item).use { input ->
-                StreamCopy.copy(input, sink, item.size, stop) { done, total -> progress(index, count, item.name, done, total) }
+                StreamCopy.copy(input, sink, item.size, stop) { done, total ->
+                    (progressCallback ?: { d, t -> progress(index, count, item.name, d, t) })(done, total)
+                }
                 sink.flush()
             } }
         } catch (e: Exception) {
