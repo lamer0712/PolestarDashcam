@@ -217,7 +217,10 @@ class ExportController(private val app: Application) {
         error.message?.let { message ->
             message.contains("file-list mode", ignoreCase = true) ||
                 message.contains("file list mode", ignoreCase = true) ||
-                message.contains("in-file-list", ignoreCase = true)
+                message.contains("in-file-list", ignoreCase = true) ||
+                // The DVR returns an nginx 403 HTML page for media URLs when the
+                // file-list session has expired, instead of its JSON mode error.
+                message.contains("HTTP 403", ignoreCase = true)
         } == true
 
     /** The vehicle may require list mode even when the user left the safe GET-only default enabled. */

@@ -1,3 +1,4 @@
+- 0.4.38: 미디어 URL HTTP 403 시 파일 목록 모드 재진입 후 다운로드 재시도.
 # 검증 기록
 
 검증일: 2026-09-12. 프로젝트: `/Users/home/PolestarDashcamExporter`.
