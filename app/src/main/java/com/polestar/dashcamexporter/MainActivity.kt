@@ -37,9 +37,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -442,8 +444,12 @@ private fun InlineVideo(url: String) {
             .setConnectTimeoutMs(60_000)
             .setReadTimeoutMs(60_000)
             .setUserAgent("Gallery+")
+        val trackSelector = DefaultTrackSelector(context).apply {
+            setParameters(buildUponParameters().setRendererDisabled(C.TRACK_TYPE_AUDIO, true))
+        }
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setTrackSelector(trackSelector)
             .build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
             playWhenReady = true

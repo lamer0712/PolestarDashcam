@@ -105,3 +105,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 - Enlarged video tiles to the same 309dp thumbnail size as the album cards.
 - Increased DVR playback and download read timeouts to 60 seconds.
 - Added an OEM-compatible download fallback: retry a rejected Range request with a direct stream, then switch back to open-ended Range resume if the direct stream is cut off.
+
+### 2026-09-12 v0.4.13
+
+- Disabled audio rendering in the inline preview so AAOS devices with unsupported DVR PCM audio do not leave a black video tile. Full downloaded files retain their original audio track.
