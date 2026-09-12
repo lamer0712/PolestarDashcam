@@ -223,6 +223,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 } else if (inDetail) {
                     Text("${selection.size}개 선택", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
+                        OutlinedButton(onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("삭제") }
                         OutlinedButton(onClick = { onFolder(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("USB 저장") }
                         Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),

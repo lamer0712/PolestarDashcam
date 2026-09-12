@@ -133,7 +133,8 @@ class ExportController(private val app: Application) {
             if (e is UserCancelledException) message(text) else reportError(text)
         } finally {
             withContext(NonCancellable) {
-                val saved = withContext(Dispatchers.IO) { visibleSaved() }
+                val saved = runCatching { withContext(Dispatchers.IO) { visibleSaved() } }
+                    .getOrElse { store.saved() }
                 mutable.update { it.copy(busy = false, progressText = "", fraction = null, saved = saved) }
             }
         }
@@ -425,6 +426,24 @@ class ExportController(private val app: Application) {
                     mutable.update { it.copy(saved = visibleSaved()) }
                 }
             }
+        }
+    }
+
+
+    fun deleteSaved(items: List<SavedMedia>) {
+        if (items.isEmpty()) return
+        transfer("선택 파일 삭제 중") {
+            var deleted = 0
+            items.forEach { item ->
+                stop.check()
+                val ok = item.uri?.let { runCatching { DocumentsContract.deleteDocument(app.contentResolver, it) }.getOrDefault(false) }
+                    ?: item.file?.let { it.delete() }
+                    ?: false
+                if (!ok) throw IOException("파일을 삭제하지 못했습니다: ${item.name}")
+                deleted++
+            }
+            mutable.update { it.copy(saved = visibleSaved()) }
+            "${deleted}개 파일을 삭제했습니다."
         }
     }
 
