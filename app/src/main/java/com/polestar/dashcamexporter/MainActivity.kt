@@ -574,7 +574,6 @@ private fun InlineVideo(url: String) {
     val context = LocalContext.current
     var failureText by remember(url) { mutableStateOf<String?>(null) }
     var ready by remember(url) { mutableStateOf(false) }
-    var speed by remember(url) { mutableStateOf(1.0f) }
     val player = remember(url) {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
@@ -632,11 +631,6 @@ private fun InlineVideo(url: String) {
         if (!ready && failureText == null) {
             Box(Modifier.matchParentSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color(0xFFFF7A00), strokeWidth = 2.dp, modifier = Modifier.size(34.dp))
-            }
-        }
-        Surface(color = Color(0x99000000), modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)) {
-            TextButton(onClick = { speed = if (speed == 1.0f) 1.5f else 1.0f; player.setPlaybackSpeed(speed) }) {
-                Text("${speed}x", color = Color.White)
             }
         }
         failureText?.let { message ->
