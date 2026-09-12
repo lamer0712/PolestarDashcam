@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.Toast
 import android.widget.VideoView
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -130,6 +131,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
             onChooseFolder()
         }
     }
+    LaunchedEffect(state.message) {
+        if (state.message.isNotBlank()) Toast.makeText(controller.appContext, state.message, Toast.LENGTH_SHORT).show()
+    }
+    LaunchedEffect(state.recoveryBase) {
+        if (state.recoveryBase != null) Toast.makeText(controller.appContext, "DVR 녹화 복귀 확인이 필요합니다.", Toast.LENGTH_LONG).show()
+    }
     var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
     var savedOpen by rememberSaveable { mutableStateOf(false) }
     var editMode by rememberSaveable { mutableStateOf(false) }
@@ -199,14 +206,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 onEdit = { editMode = !editMode; selected = emptyList(); previewKey = null },
                 onChooseFolder = onChooseFolder
             )
-            if (state.recoveryBase != null) {
-                Surface(color = Color(0xFF553428), shape = RoundedCornerShape(0.dp), modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("DVR 녹화 복귀 확인 필요\n${state.recoveryBase}", Modifier.weight(1f))
-                        Button(onClick = controller::recoverRecording, enabled = !state.busy) { Text("녹화 복귀 재시도") }
-                    }
-                }
-            }
             Row(Modifier.fillMaxSize()) {
                 GallerySidebar(savedSelected = savedOpen, onAlbums = ::leaveDetail, onSaved = {
                     album = null

@@ -60,6 +60,7 @@ class ExportController(private val app: Application) {
         busy = true, progressText = "저장 파일 확인 중"
     ))
     val state = mutable.asStateFlow()
+    val appContext: Application get() = app
     private var stop = StopToken()
     private var pendingTransfer: (() -> String)? = null
 
