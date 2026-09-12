@@ -59,6 +59,7 @@ import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private val controller get() = (application as ExporterApplication).controller
@@ -217,8 +218,13 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 if (state.busy) {
                     Text(state.progressText.ifBlank { "작업 중" }, Modifier.widthIn(max = 560.dp), color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val fraction = state.fraction
-                    if (fraction == null) LinearProgressIndicator(Modifier.weight(1f))
-                    else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
+                    if (fraction == null) {
+                        LinearProgressIndicator(Modifier.weight(1f))
+                    } else {
+                        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
+                        Text("${(fraction * 100f).roundToInt()}%", color = Color.White, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.widthIn(min = 52.dp))
+                    }
                     TextButton(onClick = controller::cancel) { Text("취소") }
                 } else if (inDetail) {
                     Text("${selection.size}개 선택", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
