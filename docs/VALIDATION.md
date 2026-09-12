@@ -154,3 +154,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.27 error-dialog validation
 
 - Transfer failures remain in a modal error dialog so the HTTP status and DVR response can be photographed for diagnosis.
+
+## 2026-09-13 v0.4.28 service-error validation
+
+- Foreground-service interruptions persist an error message and show it when the app screen is reopened.

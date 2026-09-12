@@ -42,7 +42,15 @@ class TransferService : Service() {
         scope.launch {
             val updates = launch { controller.state.collect { manager.notify(1, notification(it.progressText)) } }
             try { controller.runPendingTransfer() }
-            finally { workInProgress = false; updates.cancel(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+            finally {
+                if (controller.state.value.busy) {
+                    controller.reportError("파일 전송 서비스가 중단되었습니다. 다시 시도해 주세요.")
+                }
+                workInProgress = false
+                updates.cancel()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
         return START_NOT_STICKY
     }

@@ -169,3 +169,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.27
 
 - Download and DVR errors remain visible in a modal dialog with the full server message for vehicle-side diagnosis.
+
+### 2026-09-13 v0.4.28
+
+- Persisted transfer errors so a foreground-service interruption still appears as a dialog after returning to the app.
