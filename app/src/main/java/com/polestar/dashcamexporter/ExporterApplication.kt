@@ -34,6 +34,7 @@ data class ExportState(
     val progressText: String = "",
     val fraction: Float? = null,
     val message: String = "",
+    val errorMessage: String? = null,
     val recoveryBase: String? = null,
     val exportTree: Uri? = null
 )
@@ -113,7 +114,7 @@ class ExportController(private val app: Application) {
             message("이전 DVR 세션의 녹화 복귀를 먼저 확인하세요."); return false
         }
         stop = StopToken()
-        mutable.update { it.copy(busy = true, progressText = label, fraction = null, message = "") }
+        mutable.update { it.copy(busy = true, progressText = label, fraction = null, message = "", errorMessage = null) }
         return true
     }
 
@@ -121,8 +122,9 @@ class ExportController(private val app: Application) {
         try {
             message(withContext(Dispatchers.IO) { action() })
         } catch (e: Exception) {
-            message(if (e is UserCancelledException) "작업을 취소했습니다. 이미 완료된 파일은 보관됩니다."
-                else e.message ?: "작업에 실패했습니다.")
+            val text = if (e is UserCancelledException) "작업을 취소했습니다. 이미 완료된 파일은 보관됩니다."
+                else e.message ?: "작업에 실패했습니다."
+            mutable.update { it.copy(message = text, errorMessage = if (e is UserCancelledException) null else text) }
         } finally {
             withContext(NonCancellable) {
                 val saved = withContext(Dispatchers.IO) { visibleSaved() }
@@ -130,6 +132,8 @@ class ExportController(private val app: Application) {
             }
         }
     }
+
+    fun clearError() { mutable.update { it.copy(errorMessage = null) } }
 
     fun cancel() {
         if (!state.value.busy) return

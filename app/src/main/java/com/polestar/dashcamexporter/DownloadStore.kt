@@ -194,7 +194,11 @@ class DownloadStore(private val root: File) {
                         }
                     }
                     failuresWithoutProgress = 0
-                    if (code == HttpURLConnection.HTTP_OK ||
+                    // A DVR may ignore Range and return a 200 response capped at its
+                    // stream limit (observed around 60 MiB). Do not treat that short
+                    // response as complete when the file-list size is larger.
+                    if ((code == HttpURLConnection.HTTP_OK &&
+                            (expectedTotal <= 0L || partial.length() >= expectedTotal)) ||
                         (expectedTotal > 0 && partial.length() == expectedTotal)) break
                 } catch (e: UserCancelledException) {
                     throw e

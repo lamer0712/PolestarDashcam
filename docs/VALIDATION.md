@@ -142,3 +142,15 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.24 photo viewer validation
 
 - Saved photos open in an in-app full-screen viewer using the SAF/file URI, including vehicles without an external image viewer activity.
+
+## 2026-09-13 v0.4.25 file metadata layout validation
+
+- DVR video filenames and byte sizes share one row with opposing alignment.
+
+## 2026-09-13 v0.4.26 large-file completion validation
+
+- HTTP 200 responses shorter than the expected file-list size are resumed instead of being marked complete.
+
+## 2026-09-13 v0.4.27 error-dialog validation
+
+- Transfer failures remain in a modal error dialog so the HTTP status and DVR response can be photographed for diagnosis.

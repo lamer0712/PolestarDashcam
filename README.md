@@ -157,3 +157,15 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.24
 
 - Saved JPG and other photos now open in an in-app full-screen viewer instead of depending on an external image viewer.
+
+### 2026-09-13 v0.4.25
+
+- Video filenames and sizes are shown on one row with the name left-aligned and size right-aligned.
+
+### 2026-09-13 v0.4.26
+
+- A short HTTP 200 stream is no longer treated as a completed large download; the app continues from the received byte offset until the file-list size is reached.
+
+### 2026-09-13 v0.4.27
+
+- Download and DVR errors remain visible in a modal dialog with the full server message for vehicle-side diagnosis.

@@ -151,6 +151,14 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     LaunchedEffect(state.message) {
         if (state.message.isNotBlank()) Toast.makeText(controller.appContext, state.message, Toast.LENGTH_SHORT).show()
     }
+    state.errorMessage?.let { error ->
+        AlertDialog(
+            onDismissRequest = controller::clearError,
+            title = { Text("작업 오류") },
+            text = { Text(error, color = Color.White) },
+            confirmButton = { TextButton(onClick = controller::clearError) { Text("확인") } }
+        )
+    }
     LaunchedEffect(state.recoveryBase) {
         if (state.recoveryBase != null) Toast.makeText(controller.appContext, "DVR 녹화 복귀 확인이 필요합니다.", Toast.LENGTH_LONG).show()
     }
@@ -448,8 +456,13 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, p
         }
         Text(item.displayRange, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-        Text(item.name, fontSize = 12.sp, color = if (selected) Color(0xFFFFB26A) else Color(0xFF9C9C9C),
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(item.name, fontSize = 12.sp, color = if (selected) Color(0xFFFFB26A) else Color(0xFF9C9C9C),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(formatBytes(item.size), fontSize = 12.sp,
+                color = if (selected) Color(0xFFFFB26A) else Color(0xFF9C9C9C),
+                modifier = Modifier.padding(start = 8.dp))
+        }
     }
 }
 
