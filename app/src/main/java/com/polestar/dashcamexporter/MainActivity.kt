@@ -574,6 +574,7 @@ private fun InlineVideo(url: String) {
     val context = LocalContext.current
     var failureText by remember(url) { mutableStateOf<String?>(null) }
     var ready by remember(url) { mutableStateOf(false) }
+    var speed by remember(url) { mutableStateOf(1.0f) }
     val player = remember(url) {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(60_000)
@@ -633,6 +634,11 @@ private fun InlineVideo(url: String) {
                 CircularProgressIndicator(color = Color(0xFFFF7A00), strokeWidth = 2.dp, modifier = Modifier.size(34.dp))
             }
         }
+        Surface(color = Color(0x99000000), modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+            TextButton(onClick = { speed = if (speed == 1.0f) 1.5f else 1.0f; player.setPlaybackSpeed(speed) }) {
+                Text("${speed}x", color = Color.White)
+            }
+        }
         failureText?.let { message ->
             Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
             Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
@@ -673,6 +679,15 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
                 prepare()
             }
     }
+    var positionMs by remember(player) { mutableLongStateOf(0L) }
+    var durationMs by remember(player) { mutableLongStateOf(0L) }
+    LaunchedEffect(player) {
+        while (true) {
+            positionMs = player.currentPosition.coerceAtLeast(0L)
+            durationMs = player.duration.takeIf { it > 0L } ?: 0L
+            kotlinx.coroutines.delay(500L)
+        }
+    }
     DisposableEffect(player) { onDispose { player.release() } }
     Dialog(
         onDismissRequest = onDismiss,
@@ -700,17 +715,30 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.TopEnd).padding(18.dp).size(64.dp)
                 ) { Text("×", color = Color.White, fontSize = 52.sp) }
-                Text(
-                    file.name,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
-                )
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    if (durationMs > 0L) {
+                        Slider(
+                            value = positionMs.coerceIn(0L, durationMs).toFloat(),
+                            onValueChange = { player.seekTo(it.toLong()) },
+                            valueRange = 0f..durationMs.toFloat(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(formatPlaybackTime(positionMs), color = Color.White, fontSize = 12.sp)
+                            Text(formatPlaybackTime(durationMs), color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                    Text(file.name, color = Color.White, fontSize = 18.sp, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                }
             }
         }
     }
+}
+
+private fun formatPlaybackTime(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    return String.format(Locale.getDefault(), "%d:%02d", totalSeconds / 60L, totalSeconds % 60L)
 }
 
 @Composable
