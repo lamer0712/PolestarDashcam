@@ -160,6 +160,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
+    var fullScreenPhoto by remember { mutableStateOf<SavedMedia?>(null) }
     val currentAlbum = album
     val inDetail = currentAlbum != null || savedOpen
     val local = savedOpen
@@ -245,7 +246,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         onToggle = ::toggle,
                         onPreview = { previewKey = if (previewKey == it) null else it },
                         onOpen = { file ->
-                            if (file.mime.startsWith("video/")) fullScreenSaved = file else onOpen(file)
+                            if (file.mime.startsWith("video/")) fullScreenSaved = file else fullScreenPhoto = file
                         },
                         onMore = { currentAlbum?.let(controller::more) },
                         onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) }
@@ -258,6 +259,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
     fullScreenSaved?.let { file ->
         FullScreenVideo(file = file, onDismiss = { fullScreenSaved = null })
+    }
+    fullScreenPhoto?.let { file ->
+        FullScreenPhoto(file = file, onDismiss = { fullScreenPhoto = null })
     }
 }
 
@@ -635,6 +639,35 @@ private fun FullScreenVideo(file: SavedMedia, onDismiss: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullScreenPhoto(file: SavedMedia, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, file.key) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            savedThumbnail(context, file)?.asImageBitmap()
+        }
+    }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
+                bitmap?.let {
+                    Image(it, contentDescription = file.name, contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(24.dp))
+                } ?: CircularProgressIndicator(color = Color(0xFFFF7A00), modifier = Modifier.align(Alignment.Center))
+                IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(18.dp).size(64.dp)) {
+                    Text("×", color = Color.White, fontSize = 52.sp)
+                }
+                Text(file.name, color = Color.White, fontSize = 18.sp, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(24.dp))
             }
         }
     }

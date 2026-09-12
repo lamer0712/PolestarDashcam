@@ -153,3 +153,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.23
 
 - Added local video and photo frame extraction for Saved thumbnails so downloaded files show their own previews.
+
+### 2026-09-13 v0.4.24
+
+- Saved JPG and other photos now open in an in-app full-screen viewer instead of depending on an external image viewer.

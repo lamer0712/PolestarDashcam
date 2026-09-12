@@ -138,3 +138,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.23 saved-thumbnail validation
 
 - Saved video tiles extract a frame with `MediaMetadataRetriever`; saved photos use the local image bytes for their thumbnail.
+
+## 2026-09-13 v0.4.24 photo viewer validation
+
+- Saved photos open in an in-app full-screen viewer using the SAF/file URI, including vehicles without an external image viewer activity.
