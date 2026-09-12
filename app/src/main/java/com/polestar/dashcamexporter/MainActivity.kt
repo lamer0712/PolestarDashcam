@@ -47,6 +47,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
@@ -565,7 +566,8 @@ private fun InlineVideo(url: String) {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    failureText = error.errorCodeName
+                    val response = generatePlaybackError(error)
+                    failureText = "${error.errorCodeName}: $response"
                 }
             })
             prepare()
@@ -606,6 +608,19 @@ private fun InlineVideo(url: String) {
             }
         }
     }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+private fun generatePlaybackError(error: PlaybackException): String {
+    var cause: Throwable? = error.cause
+    while (cause != null) {
+        if (cause is HttpDataSource.InvalidResponseCodeException) {
+            val body = cause.headerFields?.values?.flatten()?.firstOrNull { it.isNotBlank() }.orEmpty()
+            return "HTTP ${cause.responseCode}${if (body.isBlank()) "" else " · $body"}"
+        }
+        cause = cause.cause
+    }
+    return error.cause?.message ?: "DVR 응답을 읽지 못했습니다."
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)

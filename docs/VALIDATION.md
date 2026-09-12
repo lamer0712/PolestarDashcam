@@ -178,3 +178,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.33 playback DVR-mode validation
 
 - Inline playback enters `in-file-list` before opening the DVR URL and restores `normal` when leaving the detail view.
+
+## 2026-09-13 v0.4.34 playback-error diagnostics
+
+- Media3 HTTP playback errors display the concrete response code and response detail on the video tile.

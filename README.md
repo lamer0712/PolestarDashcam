@@ -193,3 +193,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.33
 
 - DVR inline playback now enters and keeps `in-file-list` mode for the duration of the detail view, then restores `normal` when leaving it.
+
+### 2026-09-13 v0.4.34
+
+- Inline playback errors now show the concrete HTTP response code and server detail instead of only `ERROR_CODE_IO_BAD_HTTP_STATUS`.
