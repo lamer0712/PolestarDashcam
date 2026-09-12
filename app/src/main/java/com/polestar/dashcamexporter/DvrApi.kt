@@ -205,7 +205,8 @@ class DvrApi(val base: String) {
         }
         fun connection(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 8_000
-            readTimeout = 15_000
+            // The OEM Gallery keeps the DVR stream open for up to 60 seconds.
+            readTimeout = 60_000
             instanceFollowRedirects = false
             useCaches = false
             setRequestProperty("Accept-Encoding", "identity")

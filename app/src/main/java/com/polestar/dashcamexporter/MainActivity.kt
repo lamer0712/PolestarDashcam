@@ -40,6 +40,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
@@ -339,7 +341,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 150.dp),
+            columns = GridCells.Adaptive(minSize = 309.dp),
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp),
@@ -413,11 +415,11 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
         border = if (selected) BorderStroke(5.dp, Color(0xFFFF7A00)) else null,
-        modifier = Modifier.size(154.dp)
+        modifier = Modifier.size(309.dp)
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
-            else Thumbnail(path = path, width = 154.dp, height = 154.dp, radius = 0.dp)
+            else Thumbnail(path = path, width = 309.dp, height = 309.dp, radius = 0.dp)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
                     Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
@@ -436,7 +438,13 @@ private fun InlineVideo(url: String) {
     var failureText by remember(url) { mutableStateOf<String?>(null) }
     var ready by remember(url) { mutableStateOf(false) }
     val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(60_000)
+            .setReadTimeoutMs(60_000)
+            .setUserAgent("Gallery+")
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
             playWhenReady = true
             setMediaItem(MediaItem.fromUri(Uri.parse(url)))
@@ -455,7 +463,7 @@ private fun InlineVideo(url: String) {
     DisposableEffect(player) {
         onDispose { player.release() }
     }
-    Box(Modifier.size(154.dp)) {
+    Box(Modifier.size(309.dp)) {
         AndroidView(
             factory = { viewContext ->
                 PlayerView(viewContext).apply {

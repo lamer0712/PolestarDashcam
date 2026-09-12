@@ -226,6 +226,18 @@ class DvrProtocolTest {
             CookieHandler.setDefault(previous)
         }
     }
+
+    @Test fun fallsBackToOemDirectStreamWhenDvrRejectsRange() {
+        val payload = ByteArray(2 * 1024 * 1024 + 17) { (it * 19 % 251).toByte() }
+        routes["/media/clip.mp4"] = { request ->
+            if (request.getHeader("Range") != null) MockResponse().setResponseCode(403)
+            else MockResponse().setHeader("Content-Type", "video/mp4").setBody(Buffer().write(payload))
+        }
+        val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
+        assertArrayEquals(payload, saved.file!!.readBytes())
+        assertEquals(listOf("bytes=0-", null), rangeHeaders)
+    }
+
     @Test fun setModeSendsJsonBodyAndVerifiesReadback() {
         var recording = "normal"
         var sent = ""

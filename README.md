@@ -99,3 +99,9 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 
 - Enlarged detail-list thumbnails to match the OEM Gallery scale.
 - Fixed album cards to a consistent width and left-aligned the album list.
+
+### 2026-09-12 v0.4.12
+
+- Enlarged video tiles to the same 309dp thumbnail size as the album cards.
+- Increased DVR playback and download read timeouts to 60 seconds.
+- Added an OEM-compatible download fallback: retry a rejected Range request with a direct stream, then switch back to open-ended Range resume if the direct stream is cut off.

@@ -126,6 +126,9 @@ class DownloadStore(private val root: File) {
         val partial = File(file.parentFile, "${file.name}.part")
         partial.delete()
         var expectedTotal = media.size
+        var useRanges = expectedTotal > 0L
+        var directFallbackTried = false
+        var rangeFallbackTried = false
         var failuresWithoutProgress = 0
         var connectionCount = 0
         var completed = false
@@ -142,7 +145,7 @@ class DownloadStore(private val root: File) {
                     throw IOException("긴 파일 다운로드 연결 횟수가 너무 많습니다.")
 
                 val connection = DvrApi.connection(media.url)
-                if (expectedTotal > 0) {
+                if (useRanges && expectedTotal > 0) {
                     // Match the OEM Gallery playback path. The DVR accepts open-ended ranges
                     // (bytes=start-) more reliably than bounded byte ranges (bytes=start-end).
                     connection.setRequestProperty("Range", "bytes=$offset-")
@@ -197,6 +200,27 @@ class DownloadStore(private val root: File) {
                 } catch (e: UserCancelledException) {
                     throw e
                 } catch (e: IOException) {
+                    if (useRanges && isForbidden(e) && !directFallbackTried) {
+                        // Some DVR firmware rejects the second open-ended range after a
+                        // large response. Match the OEM Gallery's direct streaming path
+                        // before giving up on the file.
+                        partial.delete()
+                        expectedTotal = media.size
+                        useRanges = false
+                        directFallbackTried = true
+                        rangeFallbackTried = false
+                        failuresWithoutProgress = 0
+                        connectionCount = 0
+                        continue
+                    }
+                    if (!useRanges && partial.length() > before && !rangeFallbackTried) {
+                        // A direct stream can be cut off by the DVR's response-size limit;
+                        // resume it with the open-ended ranges used by the OEM player.
+                        useRanges = true
+                        rangeFallbackTried = true
+                        failuresWithoutProgress = 0
+                        continue
+                    }
                     if (partial.length() > before) {
                         failuresWithoutProgress = 0
                         continue
@@ -231,6 +255,9 @@ class DownloadStore(private val root: File) {
         if (last < first || (total > 0 && last >= total)) return null
         return ContentRange(first, last, total)
     }
+
+    private fun isForbidden(error: IOException): Boolean =
+        error.message?.contains("HTTP 403", ignoreCase = true) == true
 
     companion object {
         private const val RANGE_CHUNK_BYTES = 32L * 1024 * 1024
