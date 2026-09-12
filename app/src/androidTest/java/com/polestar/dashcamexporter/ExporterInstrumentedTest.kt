@@ -56,6 +56,7 @@ class ExporterInstrumentedTest {
         assertEquals(2, controller.state.value.pages[MediaKind.EMERGENCY]!!.entries.size)
         assertEquals(2, controller.state.value.pages[MediaKind.PHOTO]!!.entries.size)
         compose.onNodeWithText("Loop videos").performClick()
+        compose.onNodeWithText("✎").performClick()
         compose.onNodeWithText("normal_000.mp4").performClick()
         compose.onNodeWithText("Export").performClick()
         idle()

@@ -4,6 +4,7 @@ import android.Manifest
 import android.graphics.BitmapFactory
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.VideoView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -131,6 +134,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var savedOpen by rememberSaveable { mutableStateOf(false) }
     var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
     val currentAlbum = album
     val inDetail = currentAlbum != null || savedOpen
     val local = savedOpen
@@ -144,12 +148,14 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         savedOpen = false
         editMode = false
         selected = emptyList()
+        previewKey = null
     }
     fun openAlbum(kind: MediaKind) {
         album = kind
         savedOpen = false
         editMode = false
         selected = emptyList()
+        previewKey = null
     }
 
     Scaffold(containerColor = Color(0xFF121212), bottomBar = {
@@ -180,7 +186,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 editMode = editMode,
                 busy = state.busy,
                 onBack = ::leaveDetail,
-                onEdit = { editMode = !editMode; selected = emptyList() },
+                onEdit = { editMode = !editMode; selected = emptyList(); previewKey = null },
                 onChooseFolder = onChooseFolder
             )
             if (state.recoveryBase != null) {
@@ -221,6 +227,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     savedOpen = true
                     editMode = false
                     selected = emptyList()
+                    previewKey = null
                 })
                 if (inDetail) {
                     DetailGrid(
@@ -231,7 +238,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         remote = remote,
                         selection = selection,
                         editMode = editMode,
+                        previewKey = previewKey,
                         onToggle = ::toggle,
+                        onPreview = { previewKey = if (previewKey == it) null else it },
                         onOpen = onOpen,
                         onMore = { currentAlbum?.let(controller::more) },
                         onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) }
@@ -319,8 +328,8 @@ private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Mod
 
 @Composable
 private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
-                       remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean,
-                       onToggle: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
+                       remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean, previewKey: String?,
+                       onToggle: (String) -> Unit, onPreview: (String) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
@@ -346,7 +355,8 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             } else {
                 gridItems(remote, key = { it.key }) { item ->
                     DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
-                        editMode = editMode, onToggle = { onToggle(item.key) })
+                        playing = previewKey == item.key, editMode = editMode,
+                        onToggle = { onToggle(item.key) }, onPreview = { onPreview(item.key) })
                 }
                 if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
@@ -370,10 +380,16 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
 }
 
 @Composable
-private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, editMode: Boolean, onToggle: () -> Unit) {
-    Column(Modifier.clickable(onClick = onToggle)) {
-        SelectableThumbnail(path = thumbnailPath, selected = selected) {
+private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, playing: Boolean, editMode: Boolean,
+                    onToggle: () -> Unit, onPreview: () -> Unit) {
+    val canPreview = item.kind != MediaKind.PHOTO
+    Column(Modifier.clickable(onClick = { if (editMode || !canPreview) onToggle() else onPreview() })) {
+        SelectableThumbnail(path = thumbnailPath, selected = selected, playing = playing, videoUrl = if (playing) item.url else null) {
             if (editMode) Checkbox(checked = selected, onCheckedChange = { onToggle() }, modifier = Modifier.align(Alignment.TopEnd))
+            else if (canPreview && !playing) Surface(
+                color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.align(Alignment.Center).size(56.dp)
+            ) { Box(contentAlignment = Alignment.Center) { Text("▶", color = Color.White, fontSize = 28.sp) } }
         }
         Text(item.displayRange, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
@@ -397,7 +413,7 @@ private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, on
 }
 
 @Composable
-private fun SelectableThumbnail(path: String?, selected: Boolean, overlay: @Composable BoxScope.() -> Unit = {}) {
+private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boolean = false, videoUrl: String? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     Surface(
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
@@ -405,7 +421,13 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, overlay: @Comp
         modifier = Modifier.size(147.dp)
     ) {
         Box {
-            Thumbnail(path = path, width = 147.dp, height = 147.dp, radius = 0.dp)
+            if (videoUrl != null) InlineVideo(url = videoUrl)
+            else Thumbnail(path = path, width = 147.dp, height = 147.dp, radius = 0.dp)
+            if (playing) {
+                Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
+                    Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                }
+            }
             if (selected) {
                 Box(Modifier.matchParentSize().background(Color(0x66000000)))
                 Surface(
@@ -421,6 +443,28 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, overlay: @Comp
             overlay()
         }
     }
+}
+
+@Composable
+private fun InlineVideo(url: String) {
+    AndroidView(
+        factory = { context ->
+            VideoView(context).apply {
+                setVideoURI(Uri.parse(url))
+                setOnPreparedListener { player ->
+                    player.isLooping = true
+                    start()
+                }
+            }
+        },
+        update = { view ->
+            if (!view.isPlaying) {
+                view.setVideoURI(Uri.parse(url))
+                view.start()
+            }
+        },
+        modifier = Modifier.size(147.dp)
+    )
 }
 
 @Composable
