@@ -1,6 +1,8 @@
 package com.polestar.dashcamexporter
 
 import android.net.Uri
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -89,12 +91,50 @@ class ThumbnailStore(private val root: File) {
         val target = File(root, "${media.key}.thumb")
         val partial = File(root, "${media.key}.thumb.part")
         try {
-            val bytes = api.thumbnail(media)
+            val bytes = runCatching { api.thumbnail(media) }.getOrElse {
+                if (media.kind == MediaKind.PHOTO) throw it
+                videoPrefixThumbnail(api, media, stop)
+            }
             stop.check()
             FileOutputStream(partial).use { output -> output.write(bytes); output.fd.sync() }
             if (!partial.renameTo(target)) throw IOException("썸네일 캐시를 저장하지 못했습니다.")
             return target
         } finally { partial.delete() }
+    }
+
+    private fun videoPrefixThumbnail(api: DvrApi, media: DvrMedia, stop: StopToken): ByteArray {
+        val prefix = File(root, "${media.key}.video-prefix.part")
+        try {
+            val connection = DvrApi.connection(media.url)
+            connection.setRequestProperty("Range", "bytes=0-")
+            connection.connect()
+            if (connection.responseCode != HttpURLConnection.HTTP_OK &&
+                connection.responseCode != HttpURLConnection.HTTP_PARTIAL) DvrApi.requireOk(connection)
+            connection.inputStream.use { input -> FileOutputStream(prefix).use { output ->
+                val buffer = ByteArray(64 * 1024)
+                var total = 0L
+                while (total < MAX_VIDEO_PREFIX_BYTES) {
+                    stop.check()
+                    val read = input.read(buffer, 0, minOf(buffer.size, (MAX_VIDEO_PREFIX_BYTES - total).toInt()))
+                    if (read < 0) break
+                    output.write(buffer, 0, read); total += read
+                }
+            } }
+            connection.disconnect()
+            val bitmap = MediaMetadataRetriever().use { retriever ->
+                retriever.setDataSource(prefix.absolutePath)
+                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } ?: throw IOException("영상 앞부분에서 프레임을 추출하지 못했습니다.")
+            return java.io.ByteArrayOutputStream().use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                bitmap.recycle()
+                out.toByteArray()
+            }
+        } finally { prefix.delete() }
+    }
+
+    companion object {
+        private const val MAX_VIDEO_PREFIX_BYTES = 8L * 1024 * 1024
     }
 }
 

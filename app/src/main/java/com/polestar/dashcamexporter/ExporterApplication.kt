@@ -576,8 +576,7 @@ class ExportController(private val app: Application) {
     }
 
     private fun progress(index: Int, count: Int, name: String, done: Long, total: Long) {
-        mutable.update { it.copy(progressText = "$name · ${formatBytes(done)}" +
-            if (total > 0) " / ${formatBytes(total)}" else "",
+        mutable.update { it.copy(progressText = "$index/$count · $name",
             fraction = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else null) }
     }
 
