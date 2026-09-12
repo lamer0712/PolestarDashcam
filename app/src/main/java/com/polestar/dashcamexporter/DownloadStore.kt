@@ -103,39 +103,22 @@ class ThumbnailStore(private val root: File) {
     }
 
     private fun videoPrefixThumbnail(api: DvrApi, media: DvrMedia, stop: StopToken): ByteArray {
-        val prefix = File(root, "${media.key}.video-prefix.part")
-        try {
-            val connection = DvrApi.connection(media.url)
-            connection.setRequestProperty("Range", "bytes=0-")
-            connection.connect()
-            if (connection.responseCode != HttpURLConnection.HTTP_OK &&
-                connection.responseCode != HttpURLConnection.HTTP_PARTIAL) DvrApi.requireOk(connection)
-            connection.inputStream.use { input -> FileOutputStream(prefix).use { output ->
-                val buffer = ByteArray(64 * 1024)
-                var total = 0L
-                while (total < MAX_VIDEO_PREFIX_BYTES) {
-                    stop.check()
-                    val read = input.read(buffer, 0, minOf(buffer.size, (MAX_VIDEO_PREFIX_BYTES - total).toInt()))
-                    if (read < 0) break
-                    output.write(buffer, 0, read); total += read
-                }
-            } }
-            connection.disconnect()
-            val bitmap = MediaMetadataRetriever().use { retriever ->
-                retriever.setDataSource(prefix.absolutePath)
-                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            } ?: throw IOException("영상 앞부분에서 프레임을 추출하지 못했습니다.")
-            return java.io.ByteArrayOutputStream().use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-                bitmap.recycle()
-                out.toByteArray()
-            }
-        } finally { prefix.delete() }
+        stop.check()
+        val bitmap = MediaMetadataRetriever().use { retriever ->
+            // The retriever performs the same on-demand HTTP reads as the video
+            // player, including seeks to MP4 metadata that may be at the end.
+            retriever.setDataSource(media.url, mapOf("User-Agent" to "Gallery+"))
+            stop.check()
+            retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        } ?: throw IOException("영상 스트림에서 첫 프레임을 추출하지 못했습니다.")
+        return java.io.ByteArrayOutputStream().use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            bitmap.recycle()
+            out.toByteArray()
+        }
     }
 
-    companion object {
-        private const val MAX_VIDEO_PREFIX_BYTES = 8L * 1024 * 1024
-    }
+    companion object
 }
 
 class DownloadStore(private val root: File) {
