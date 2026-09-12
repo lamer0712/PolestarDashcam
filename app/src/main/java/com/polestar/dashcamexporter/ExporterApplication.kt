@@ -410,15 +410,14 @@ class ExportController(private val app: Application) {
             val api = DvrApi(config.base)
             sessionWithAutomaticMode(api, config.useListMode) {
                 batch(items, "다운로드") { item, index ->
-                    // Present one continuous per-file bar across the three physical
-                    // writes instead of restarting it for each destination.
+                    // Present one continuous per-file bar across the DVR download
+                    // and optional user-folder copy.
                     fun phase(start: Float, weight: Float, label: String) =
                         { done: Long, total: Long ->
                             val ratio = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
                             progress(index, items.size, label, ((start + weight * ratio) * 1000).toLong(), 1000)
                         }
-                    val saved = store.download(item, stop, phase(0f, 0.8f, item.name))
-                    PublicMediaStore.publish(app, saved, stop, phase(0.8f, 0.1f, item.name))
+                    val saved = store.download(item, stop, phase(0f, 0.9f, item.name))
                     state.value.exportTree?.let { tree ->
                         copyOneToFolder(saved, tree, index, items.size, phase(0.9f, 0.1f, item.name))
                     }
