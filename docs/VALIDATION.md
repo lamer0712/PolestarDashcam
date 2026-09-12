@@ -37,10 +37,10 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 
 파일명: `PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
 
-- 크기: 20,896,010 bytes (약 19.9 MiB)
+- 크기: 20,636,657 bytes (약 19.7 MiB)
 - iCloud Drive 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-v0.3.0-20260912-1223.apk`
 - 최신 사본: `/Users/home/Library/Mobile Documents/com~apple~CloudDocs/PolestarDashcamExporter-latest.apk`
-- SHA-256: `cff7efb659d6a547db77e7653e50adba8963dc61a7b60df7ed6bb16e7370a3dd`
+- SHA-256: `8aa76177189848edc991c4c5b0f96730b76d2f7e97bd39a13233cf54576ed8c4`
 
 로컬 iCloud Drive 폴더에 기록하고 해시를 확인했습니다. 다른 기기까지 iCloud 동기화가 완료되었는지는 확인하지 않았습니다. APK에는 모의 파일이나 테스트 주소 설정이 포함되지 않으며 새 설치 기본 주소는 `http://198.18.37.20`입니다.
 
