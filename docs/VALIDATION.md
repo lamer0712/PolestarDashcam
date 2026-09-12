@@ -113,3 +113,11 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.17 thumbnail layout validation
 
 - Video tiles use a 248dp width, approximately 80% of the previous 309dp width, with a 16:9 aspect ratio instead of a square frame.
+
+## 2026-09-13 v0.4.18 time-label validation
+
+- Video start and end times are rendered on one line in the detail list.
+
+## 2026-09-13 v0.4.19 date-group validation
+
+- DVR video tiles are grouped by `yyyy-MM-dd` with a full-width date header for each recording date.

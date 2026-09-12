@@ -397,10 +397,17 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                         onToggle = { onToggle(item.key) }, onOpen = { onOpen(item) })
                 }
             } else {
-                gridItems(remote, key = { it.key }) { item ->
-                    DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
-                        playing = previewKey == item.key, editMode = editMode,
-                        onToggle = { onToggle(item.key) }, onPreview = { onPreview(item.key) })
+                remote.groupBy { dateGroupLabel(it.dateTime) }.forEach { (date, items) ->
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(date, color = Color.White, fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp))
+                    }
+                    gridItems(items, key = { it.key }) { item ->
+                        DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
+                            playing = previewKey == item.key, editMode = editMode,
+                            onToggle = { onToggle(item.key) }, onPreview = { onPreview(item.key) })
+                    }
                 }
                 if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
@@ -624,4 +631,10 @@ private fun formatTimestamp(value: Long): String? {
     if (value <= 0) return null
     val millis = if (value < 100_000_000_000L) value * 1000 else value
     return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
+}
+
+private fun dateGroupLabel(value: Long): String {
+    if (value <= 0L) return "Unknown date"
+    val millis = if (value < 100_000_000_000L) value * 1000 else value
+    return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(millis))
 }

@@ -127,3 +127,11 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.17
 
 - Reduced video thumbnail width to 80% of the previous size and changed the tile height to the 16:9 video aspect ratio.
+
+### 2026-09-13 v0.4.18
+
+- Displayed each video's start and end time on one line in the detail list.
+
+### 2026-09-13 v0.4.19
+
+- Grouped DVR videos by recording date with a full-width date separator in the detail list.

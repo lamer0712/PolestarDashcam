@@ -38,7 +38,7 @@ data class DvrMedia(
         val start = if (dateTime < 100_000_000_000L) dateTime * 1000 else dateTime
         val end = start + duration.coerceAtLeast(0) * 1000L
         return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).let {
-            "${it.format(java.util.Date(start))}-\n${it.format(java.util.Date(end))}"
+            "${it.format(java.util.Date(start))}-${it.format(java.util.Date(end))}"
         }
     }
 }
