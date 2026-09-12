@@ -336,11 +336,16 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                        onSelectAll: () -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().height(48.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(if (local) "${state.saved.size} files" else "${remote.size} files",
                 color = Color(0xFFB8B8B8), fontSize = 18.sp, modifier = Modifier.weight(1f))
             if (editMode) TextButton(onClick = onSelectAll, enabled = keys.isNotEmpty() && !state.busy) {
                 Text(if (selection.size == keys.size && keys.isNotEmpty()) "Deselect all" else "Select all")
+            } else {
+                Spacer(Modifier.width(112.dp))
             }
         }
         LazyVerticalGrid(

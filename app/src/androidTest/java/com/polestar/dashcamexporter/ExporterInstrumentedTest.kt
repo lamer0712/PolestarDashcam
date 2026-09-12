@@ -34,6 +34,8 @@ class ExporterInstrumentedTest {
         } finally { connection.disconnect() }
     }
     private fun mockState(): JSONObject = URL("$base/__state").openStream().bufferedReader().use { JSONObject(it.readText()) }
+    private fun readSaved(item: SavedMedia): ByteArray = item.file?.readBytes()
+        ?: compose.activity.contentResolver.openInputStream(item.uri!!)!!.use { it.readBytes() }
     private fun idle() { compose.waitUntil(30_000) { !controller.state.value.busy } }
     private fun refresh(mode: Boolean = false) {
         compose.runOnUiThread { assertTrue(controller.configure(base, mode)); controller.refresh() }
@@ -68,7 +70,7 @@ class ExporterInstrumentedTest {
             arrayOf("normal_000.mp4", "Movies/Polestar Dashcam/normal/"), null
         )!!.use { it.count }
         assertEquals(1, publicCount)
-        val hash = MessageDigest.getInstance("SHA-256").digest(saved.file.readBytes()).joinToString("") { "%02x".format(it) }
+        val hash = MessageDigest.getInstance("SHA-256").digest(readSaved(saved)).joinToString("") { "%02x".format(it) }
         assertEquals(mockState().getString("videoSha256"), hash)
         val intent = ShareFiles.intent(compose.activity, listOf(saved))
         assertEquals(Intent.ACTION_SEND, intent.action)
@@ -76,11 +78,11 @@ class ExporterInstrumentedTest {
         assertTrue(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
         val uri = intent.clipData!!.getItemAt(0).uri
         assertEquals("content", uri.scheme)
-        assertArrayEquals(saved.file.readBytes(), compose.activity.contentResolver.openInputStream(uri)!!.use { it.readBytes() })
+        assertArrayEquals(readSaved(saved), compose.activity.contentResolver.openInputStream(uri)!!.use { it.readBytes() })
         assertEquals("Default flow must not mutate recording", 0, mockState().getJSONArray("posts").length())
         compose.activityRule.scenario.recreate()
         idle()
-        assertTrue(controller.state.value.saved.any { it.file == saved.file })
+        assertTrue(controller.state.value.saved.any { it.key == saved.key })
     }
 
     @Test fun pagingReachesLastFileAndStopsAfterEmptyPage() {
@@ -124,7 +126,7 @@ class ExporterInstrumentedTest {
         compose.runOnUiThread { controller.cancel() }; idle()
         assertEquals("normal", mockState().getString("recording"))
         assertNull(controller.state.value.recoveryBase)
-        assertFalse(controller.state.value.saved.any { it.file.parentFile!!.name == media.key })
+        assertFalse(controller.state.value.saved.any { it.name == media.name })
         assertTrue(controller.state.value.message.contains("취소"))
     }
 
@@ -153,7 +155,7 @@ class ExporterInstrumentedTest {
         val items = listOf(controller.state.value.pages[MediaKind.NORMAL]!!.entries.first(),
             controller.state.value.pages[MediaKind.PHOTO]!!.entries.first())
         compose.runOnUiThread { controller.download(items) }; idle()
-        val saved = items.map { item -> controller.state.value.saved.first { it.file.parentFile!!.name == item.key } }
+        val saved = items.map { item -> controller.state.value.saved.first { it.name == item.name } }
         val intent = ShareFiles.intent(compose.activity, saved)
         assertEquals(Intent.ACTION_SEND_MULTIPLE, intent.action)
         assertEquals("*/*", intent.type)

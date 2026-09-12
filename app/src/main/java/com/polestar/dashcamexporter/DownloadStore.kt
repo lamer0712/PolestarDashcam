@@ -1,5 +1,6 @@
 package com.polestar.dashcamexporter
 
+import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -7,11 +8,19 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
 
-data class SavedMedia(val file: File, val kind: MediaKind) {
-    val key: String get() = file.absolutePath
-    val name: String get() = file.name
-    val size: Long get() = file.length()
-    val mime: String get() = mimeFor(file.name, kind)
+data class SavedMedia(
+    val file: File?,
+    val kind: MediaKind,
+    val uri: Uri? = null,
+    val displayName: String? = null,
+    val byteSize: Long = 0L,
+    val modifiedAt: Long = 0L,
+    val mimeType: String? = null
+) {
+    val key: String get() = uri?.toString() ?: file?.absolutePath.orEmpty()
+    val name: String get() = displayName ?: file?.name.orEmpty()
+    val size: Long get() = if (byteSize > 0L) byteSize else file?.length() ?: 0L
+    val mime: String get() = mimeType?.takeIf { it.isNotBlank() } ?: mimeFor(name, kind)
 }
 
 fun mimeFor(name: String, kind: MediaKind): String = when (name.substringAfterLast('.', "").lowercase()) {
@@ -97,7 +106,7 @@ class DownloadStore(private val root: File) {
             folder.listFiles().orEmpty().filter { it.isFile && !it.name.endsWith(".part") && it.length() > 0 }
                 .map { SavedMedia(it, kind) }
         }
-    }.sortedByDescending { it.file.lastModified() }
+    }.sortedByDescending { it.modifiedAt.takeIf { value -> value > 0L } ?: it.file?.lastModified() ?: 0L }
 
     fun target(media: DvrMedia): File {
         val directory = File(root, "${media.kind.api}/${media.key}")

@@ -29,7 +29,7 @@ object PublicMediaStore {
         var complete = false
         try {
             val output = resolver.openOutputStream(uri, "w") ?: throw IOException("공용 미디어 파일을 열 수 없습니다.")
-            output.use { sink -> item.file.inputStream().use { input ->
+            output.use { sink -> (item.file ?: throw IOException("공용 폴더에 저장할 원본 파일을 찾을 수 없습니다.")).inputStream().use { input ->
                 StreamCopy.copy(input, sink, item.size, stop, progress)
                 sink.flush()
             } }

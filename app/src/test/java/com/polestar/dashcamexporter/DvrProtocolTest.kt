@@ -101,7 +101,7 @@ class DvrProtocolTest {
         response("/media/clip.mp4", payload, "video/mp4")
         val item = media(size = payload.size.toLong())
         val file = DownloadStore(root).download(item, StopToken()) { _, _ -> }
-        assertArrayEquals(payload, file.file.readBytes())
+        assertArrayEquals(payload, file.file!!.readBytes())
         assertEquals(1, DownloadStore(root).saved().size)
         DownloadStore(root).download(item, StopToken()) { _, _ -> }
         assertEquals("Verified existing download is reused", 1, requests.size)
@@ -153,7 +153,7 @@ class DvrProtocolTest {
     @Test fun chunkedUnknownLengthDownloadWorks() {
         routes["/media/clip.mp4"] = { MockResponse().setHeader("Content-Type", "application/octet-stream").setChunkedBody("stream", 2) }
         val file = DownloadStore(root).download(media(size = 0), StopToken()) { _, _ -> }
-        assertEquals("stream", file.file.readText())
+        assertEquals("stream", file.file!!.readText())
     }
     @Test fun retriesA60MbPlusFileAfterUnexpectedEndOfStream() {
         val payload = ByteArray(60 * 1024 * 1024 + 123) { (it * 31 % 251).toByte() }
@@ -175,7 +175,7 @@ class DvrProtocolTest {
             }
         }
         val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
-        assertArrayEquals(payload, saved.file.readBytes())
+        assertArrayEquals(payload, saved.file!!.readBytes())
         assertTrue(requests.count { it.startsWith("GET /media/clip.mp4") } >= 3)
     }
     @Test fun retriesForbiddenBoundedRangeWithOpenEndedRange() {
@@ -193,7 +193,7 @@ class DvrProtocolTest {
             }
         }
         val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
-        assertArrayEquals(payload, saved.file.readBytes())
+        assertArrayEquals(payload, saved.file!!.readBytes())
         assertTrue(requests.any { it.startsWith("GET /media/clip.mp4") })
     }
     @Test fun preservesDvrSessionCookieAcrossRangeRequests() {
@@ -217,7 +217,7 @@ class DvrProtocolTest {
                 }
             }
             val saved = DownloadStore(root).download(media(size = payload.size.toLong()), StopToken()) { _, _ -> }
-            assertArrayEquals(payload, saved.file.readBytes())
+            assertArrayEquals(payload, saved.file!!.readBytes())
         } finally {
             CookieHandler.setDefault(previous)
         }

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 
 data class CategoryPage(val entries: List<DvrMedia> = emptyList(), val next: Int = 0,
                         val hasMore: Boolean = true, val error: String? = null)
@@ -64,7 +65,7 @@ class ExportController(private val app: Application) {
 
     init {
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { store.cleanPartialFiles(); store.saved() }
+            val saved = withContext(Dispatchers.IO) { store.cleanPartialFiles(); visibleSaved() }
             mutable.update { it.copy(saved = saved, busy = false, progressText = "") }
         }
     }
@@ -89,7 +90,10 @@ class ExportController(private val app: Application) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         runCatching { app.contentResolver.takePersistableUriPermission(tree, flags) }
         preferences.edit().putString("exportTree", tree.toString()).apply()
-        mutable.update { it.copy(exportTree = tree, message = "저장 폴더를 선택했습니다. 이후 내보내기 파일이 이 폴더에 자동으로 복사됩니다.") }
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) { visibleSaved(tree) }
+            mutable.update { it.copy(exportTree = tree, saved = saved, message = "저장 폴더를 선택했습니다. 이후 내보내기 파일이 이 폴더에 자동으로 복사됩니다.") }
+        }
     }
     fun configure(base: String, mode: Boolean): Boolean {
         if (state.value.busy || state.value.recoveryBase != null) return false
@@ -120,7 +124,7 @@ class ExportController(private val app: Application) {
                 else e.message ?: "작업에 실패했습니다.")
         } finally {
             withContext(NonCancellable) {
-                val saved = withContext(Dispatchers.IO) { store.saved() }
+                val saved = withContext(Dispatchers.IO) { visibleSaved() }
                 mutable.update { it.copy(busy = false, progressText = "", fraction = null, saved = saved) }
             }
         }
@@ -310,7 +314,7 @@ class ExportController(private val app: Application) {
                         progress(index, items.size, "공용 폴더 저장 · ${item.name}", done, total)
                     }
                     state.value.exportTree?.let { tree -> copyOneToFolder(saved, tree, index, items.size) }
-                    mutable.update { it.copy(saved = store.saved()) }
+                    mutable.update { it.copy(saved = visibleSaved()) }
                 }
             }
         }
@@ -340,7 +344,7 @@ class ExportController(private val app: Application) {
                 names += name
                 try {
                     val output = resolver.openOutputStream(document, "w") ?: throw IOException("파일을 열 수 없습니다.")
-                    output.use { sink -> item.file.inputStream().use { input ->
+                    output.use { sink -> openSavedInput(item).use { input ->
                         StreamCopy.copy(input, sink, item.size, stop) { done, total ->
                             progress(index, items.size, item.name, done, total)
                         }
@@ -358,6 +362,58 @@ class ExportController(private val app: Application) {
             }
         }
     }
+
+    private fun visibleSaved(tree: Uri? = state.value.exportTree): List<SavedMedia> =
+        tree?.let { folderSaved(it) } ?: store.saved()
+
+    private fun folderSaved(tree: Uri): List<SavedMedia> {
+        val resolver = app.contentResolver
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED
+        )
+        val result = mutableListOf<SavedMedia>()
+        resolver.query(children, projection, null, null, null)?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val sizeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
+            val modifiedCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            while (cursor.moveToNext()) {
+                val mime = cursor.getString(mimeCol).orEmpty()
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) continue
+                val name = cursor.getString(nameCol).orEmpty()
+                if (name.isBlank() || name.endsWith(".part")) continue
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(idCol))
+                val size = if (cursor.isNull(sizeCol)) 0L else cursor.getLong(sizeCol)
+                val modified = if (cursor.isNull(modifiedCol)) 0L else cursor.getLong(modifiedCol)
+                result += SavedMedia(
+                    file = null,
+                    kind = kindFor(name, mime),
+                    uri = uri,
+                    displayName = name,
+                    byteSize = size,
+                    modifiedAt = modified,
+                    mimeType = mime.takeIf { it.isNotBlank() }
+                )
+            }
+        }
+        return result.sortedByDescending { it.modifiedAt }
+    }
+
+    private fun kindFor(name: String, mime: String): MediaKind = when {
+        mime.startsWith("image/") -> MediaKind.PHOTO
+        name.substringAfterLast('.', "").lowercase() in setOf("jpg", "jpeg", "png", "heic") -> MediaKind.PHOTO
+        else -> MediaKind.NORMAL
+    }
+
+    private fun openSavedInput(item: SavedMedia): InputStream = item.uri?.let { uri ->
+        app.contentResolver.openInputStream(uri) ?: throw IOException("파일을 열 수 없습니다: ${item.name}")
+    } ?: item.file?.inputStream() ?: throw IOException("파일을 찾을 수 없습니다: ${item.name}")
 
     /** Copies one completed item to the remembered SAF folder during download. */
     private fun copyOneToFolder(item: SavedMedia, tree: Uri, index: Int, count: Int) {
@@ -379,7 +435,7 @@ class ExportController(private val app: Application) {
             ?: throw IOException("선택한 저장 폴더에 파일을 만들 수 없습니다.")
         try {
             val output = resolver.openOutputStream(document, "w") ?: throw IOException("선택한 저장 폴더를 열 수 없습니다.")
-            output.use { sink -> item.file.inputStream().use { input ->
+            output.use { sink -> openSavedInput(item).use { input ->
                 StreamCopy.copy(input, sink, item.size, stop) { done, total -> progress(index, count, item.name, done, total) }
                 sink.flush()
             } }
