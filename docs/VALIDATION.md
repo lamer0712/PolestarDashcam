@@ -190,3 +190,7 @@ SAF 복사본은 앱에서 스트림 복사와 크기 재조회를 확인했습�
 ## 2026-09-13 v0.4.36 vehicle-grid validation
 
 - Adaptive video grid minimum width is 370dp, targeting five cards per row on the vehicle display.
+
+## 2026-09-13 v0.4.37 batch-error validation
+
+- Per-file download errors now reach the persistent dialog with the HTTP/DVR details; successful files remain saved.

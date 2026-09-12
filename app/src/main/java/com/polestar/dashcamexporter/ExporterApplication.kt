@@ -506,7 +506,10 @@ class ExportController(private val app: Application) {
                 errors += "$name: ${e.message}"
             }
         }
-        return "$label $success/${items.size}개 완료" + if (errors.isEmpty()) "" else "\n" + errors.take(5).joinToString("\n")
+        if (errors.isNotEmpty()) {
+            throw IOException("$label $success/${items.size}개 완료\n" + errors.take(5).joinToString("\n"))
+        }
+        return "$label $success/${items.size}개 완료"
     }
 }
 

@@ -205,3 +205,7 @@ adb shell am instrument -w com.polestar.dashcamexporter.test/androidx.test.runne
 ### 2026-09-13 v0.4.36
 
 - Increased the adaptive video grid card minimum width to 370dp so vehicle layouts show five cards per row instead of six.
+
+### 2026-09-13 v0.4.37
+
+- Propagated per-file download failures to the persistent error dialog instead of reporting them as a normal batch completion message.
