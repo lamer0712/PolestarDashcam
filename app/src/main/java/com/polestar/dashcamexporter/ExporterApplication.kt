@@ -369,6 +369,14 @@ class ExportController(private val app: Application) {
                 throw e
             } catch (e: IOException) {
                 if (requiresFileListMode(e)) throw e
+                // Thumbnail generation is best-effort. Vehicle DVRs return
+                // internal error code 11 for files that have no generated frame;
+                // leave that tile without a thumbnail and continue the list.
+                if (e.message?.contains("code 11", ignoreCase = true) == true ||
+                    e.message?.contains("internal error", ignoreCase = true) == true) {
+                    consecutiveFailures = 0
+                    continue
+                }
                 consecutiveFailures++
                 if (consecutiveFailures >= 3) return
             }

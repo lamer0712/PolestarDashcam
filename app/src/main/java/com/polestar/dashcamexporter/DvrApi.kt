@@ -59,7 +59,9 @@ object DvrJson {
         val result = json.opt("result")
         if ((json.has("error") && json.optInt("error", -1) != 0) ||
             (result is String && result != "ok")) {
-            throw IOException("DVR 오류: ${json.optString("message", json.toString()).take(240)}")
+            val code = json.optInt("error", -1)
+            val detail = json.optString("message", json.toString()).take(240)
+            throw IOException("DVR 오류${if (code >= 0) " (code $code)" else ""}: $detail")
         }
         return json
     }
