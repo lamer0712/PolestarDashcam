@@ -162,23 +162,30 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
 
     Scaffold(containerColor = Color(0xFF121212), bottomBar = {
-        if (inDetail) Surface(color = Color(0xFF171717), tonalElevation = 3.dp) {
-            Column(Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("${selection.size}개 선택", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+        if (state.busy || inDetail) Surface(color = Color(0xFF171717), tonalElevation = 3.dp) {
+            Row(
+                Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp).heightIn(min = 64.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (state.busy) {
+                    Text(state.progressText.ifBlank { "작업 중" }, Modifier.widthIn(max = 560.dp), color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val fraction = state.fraction
+                    if (fraction == null) LinearProgressIndicator(Modifier.weight(1f))
+                    else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.weight(1f))
+                    TextButton(onClick = controller::cancel) { Text("취소") }
+                } else if (inDetail) {
+                    Text("${selection.size}개 선택", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
-                        OutlinedButton(onClick = { onFolder(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
+                        OutlinedButton(onClick = { onFolder(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("USB 저장") }
-                        Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy,
+                        Button(onClick = { onShare(state.saved.filter { it.key in selection }) }, enabled = selection.isNotEmpty(),
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("공유") }
                     } else {
-                        Button(onClick = { onDownload(remote.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && !state.busy && state.recoveryBase == null,
+                        Button(onClick = { onDownload(remote.filter { it.key in selection }) }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
                             modifier = Modifier.heightIn(min = 52.dp)) { Text("Export") }
                     }
                 }
-                Text(if (local) "저장된 파일은 재생하거나 공유할 수 있습니다."
-                    else "선택한 파일은 기기의 갤러리 폴더와 지정한 폴더에 저장됩니다.", fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }) { padding ->
@@ -198,17 +205,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         Text("DVR 녹화 복귀 확인 필요\n${state.recoveryBase}", Modifier.weight(1f))
                         Button(onClick = controller::recoverRecording, enabled = !state.busy) { Text("녹화 복귀 재시도") }
                     }
-                }
-            }
-            if (state.busy) {
-                Column(Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(state.progressText, Modifier.weight(1f), fontSize = 13.sp, maxLines = 2)
-                        TextButton(onClick = controller::cancel) { Text("취소") }
-                    }
-                    val fraction = state.fraction
-                    if (fraction == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    else LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                 }
             }
             Row(Modifier.fillMaxSize()) {

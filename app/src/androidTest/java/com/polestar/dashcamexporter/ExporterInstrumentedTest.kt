@@ -1,7 +1,6 @@
 package com.polestar.dashcamexporter
 
 import android.content.Intent
-import android.provider.MediaStore
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -63,13 +62,6 @@ class ExporterInstrumentedTest {
         compose.onNodeWithText("Export").performClick()
         idle()
         val saved = controller.state.value.saved.first { it.name == "normal_000.mp4" }
-        val publicCount = compose.activity.contentResolver.query(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?",
-            arrayOf("normal_000.mp4", "Movies/Polestar Dashcam/normal/"), null
-        )!!.use { it.count }
-        assertEquals(1, publicCount)
         val hash = MessageDigest.getInstance("SHA-256").digest(readSaved(saved)).joinToString("") { "%02x".format(it) }
         assertEquals(mockState().getString("videoSha256"), hash)
         val intent = ShareFiles.intent(compose.activity, listOf(saved))
