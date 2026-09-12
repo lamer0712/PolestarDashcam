@@ -362,7 +362,9 @@ class ExportController(private val app: Application) {
             mutable.update { it.copy(progressText = "${item.kind.label} 썸네일 ${index + 1}/${items.size} 받는 중") }
             try {
                 val file = thumbnailStore.fetch(api, item, stop)
-                mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
+                if (file != null) {
+                    mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
+                }
             } catch (e: UserCancelledException) {
                 throw e
             } catch (e: UserCancelledException) {

@@ -85,15 +85,26 @@ class ThumbnailStore(private val root: File) {
     fun existing(media: DvrMedia): File? =
         File(root, "${media.key}.thumb").takeIf { it.isFile && it.length() > 0 }
 
-    fun fetch(api: DvrApi, media: DvrMedia, stop: StopToken): File {
+    fun fetch(api: DvrApi, media: DvrMedia, stop: StopToken): File? {
         existing(media)?.let { return it }
         stop.check()
         val target = File(root, "${media.key}.thumb")
         val partial = File(root, "${media.key}.thumb.part")
         try {
-            val bytes = runCatching { api.thumbnail(media) }.getOrElse {
-                if (media.kind == MediaKind.PHOTO) throw it
-                videoPrefixThumbnail(api, media, stop)
+            val bytes = try {
+                api.thumbnail(media)
+            } catch (thumbnailError: UserCancelledException) {
+                throw thumbnailError
+            } catch (thumbnailError: Exception) {
+                if (media.kind == MediaKind.PHOTO) return null
+                try {
+                    videoPrefixThumbnail(api, media, stop)
+                } catch (fallbackError: UserCancelledException) {
+                    throw fallbackError
+                } catch (_: Exception) {
+                    // Both paths failed; this file simply has no usable preview.
+                    return null
+                }
             }
             stop.check()
             FileOutputStream(partial).use { output -> output.write(bytes); output.fd.sync() }
