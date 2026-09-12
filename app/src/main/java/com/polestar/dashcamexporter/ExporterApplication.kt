@@ -33,7 +33,8 @@ data class ExportState(
     val progressText: String = "",
     val fraction: Float? = null,
     val message: String = "",
-    val recoveryBase: String? = null
+    val recoveryBase: String? = null,
+    val exportTree: Uri? = null
 )
 
 class ExporterApplication : Application() {
@@ -54,6 +55,7 @@ class ExportController(private val app: Application) {
         base = preferences.getString("base", DvrApi.DEFAULT_BASE)!!,
         useListMode = initialListMode,
         recoveryBase = preferences.getString("recoveryBase", null),
+        exportTree = preferences.getString("exportTree", null)?.let(Uri::parse),
         busy = true, progressText = "저장 파일 확인 중"
     ))
     val state = mutable.asStateFlow()
@@ -75,6 +77,13 @@ class ExportController(private val app: Application) {
     }
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
+
+    fun setExportFolder(tree: Uri) {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        runCatching { app.contentResolver.takePersistableUriPermission(tree, flags) }
+        preferences.edit().putString("exportTree", tree.toString()).apply()
+        mutable.update { it.copy(exportTree = tree, message = "저장 폴더를 선택했습니다. 이후 내보내기 파일이 이 폴더에 자동으로 복사됩니다.") }
+    }
     fun configure(base: String, mode: Boolean): Boolean {
         if (state.value.busy || state.value.recoveryBase != null) return false
         return try {
@@ -293,6 +302,7 @@ class ExportController(private val app: Application) {
                     PublicMediaStore.publish(app, saved, stop) { done, total ->
                         progress(index, items.size, "공용 폴더 저장 · ${item.name}", done, total)
                     }
+                    state.value.exportTree?.let { tree -> copyOneToFolder(saved, tree, index, items.size) }
                     mutable.update { it.copy(saved = store.saved()) }
                 }
             }
@@ -339,6 +349,36 @@ class ExportController(private val app: Application) {
                     throw e
                 }
             }
+        }
+    }
+
+    /** Copies one completed item to the remembered SAF folder during download. */
+    private fun copyOneToFolder(item: SavedMedia, tree: Uri, index: Int, count: Int) {
+        val resolver = app.contentResolver
+        val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val names = mutableSetOf<String>()
+        resolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
+            while (c.moveToNext()) names += c.getString(0)
+        }
+        var name = item.name
+        var suffix = 1
+        while (name in names) {
+            val extension = item.name.substringAfterLast('.', "")
+            name = item.name.substringBeforeLast('.', item.name) + " (${suffix++})" +
+                if (extension.isEmpty()) "" else ".${extension}"
+        }
+        val document = DocumentsContract.createDocument(resolver, parent, item.mime, name)
+            ?: throw IOException("선택한 저장 폴더에 파일을 만들 수 없습니다.")
+        try {
+            val output = resolver.openOutputStream(document, "w") ?: throw IOException("선택한 저장 폴더를 열 수 없습니다.")
+            output.use { sink -> item.file.inputStream().use { input ->
+                StreamCopy.copy(input, sink, item.size, stop) { done, total -> progress(index, count, item.name, done, total) }
+                sink.flush()
+            } }
+        } catch (e: Exception) {
+            runCatching { DocumentsContract.deleteDocument(resolver, document) }
+            throw e
         }
     }
 

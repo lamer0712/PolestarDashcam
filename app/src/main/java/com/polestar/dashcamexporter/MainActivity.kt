@@ -50,6 +50,11 @@ class MainActivity : ComponentActivity() {
             else controller.copyToFolder(files, tree)
         } else controller.message("폴더 선택을 취소했습니다.")
     }
+    private val destinationPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val tree = result.data?.data
+        if (result.resultCode == RESULT_OK && tree != null) controller.setExportFolder(tree)
+        else if (result.resultCode == RESULT_CANCELED) controller.message("저장 폴더 선택을 취소했습니다.")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +86,13 @@ class MainActivity : ComponentActivity() {
                         pendingCopies.clear()
                         controller.message("이 차량에 시스템 폴더 선택기가 없습니다. 공유 기능을 이용하세요.")
                     } catch (e: Exception) { pendingCopies.clear(); controller.message(e.message.orEmpty()) }
+                }, onChooseFolder = {
+                    try {
+                        destinationPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                        })
+                    } catch (e: Exception) { controller.message("폴더 선택기를 열 수 없습니다: ${e.message}") }
                 })
             }
         }
@@ -105,7 +117,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedia>) -> Unit,
                          onOpen: (SavedMedia) -> Unit, onShare: (List<SavedMedia>) -> Unit,
-                         onFolder: (List<SavedMedia>) -> Unit) {
+                         onFolder: (List<SavedMedia>) -> Unit, onChooseFolder: () -> Unit) {
     val state by controller.state.collectAsState()
     LaunchedEffect(Unit) { controller.autoConnect() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -142,17 +154,34 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding().padding(horizontal = 24.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("DASHCAM / EXPORT", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, letterSpacing = 2.sp)
-                    Text("대시캠 파일 내보내기", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("DASHCAM", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, letterSpacing = 2.sp)
+                    Text("갤러리", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 }
                 Surface(color = if (state.connected) Color(0xFF203F3B) else MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(20.dp)) {
                     Text(if (state.busy) "연결 중…" else if (state.connected) "연결됨" else "자동 연결 대기",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), fontSize = 12.sp)
                 }
+                IconButton(onClick = onChooseFolder, enabled = !state.busy) {
+                    Text("▣", fontSize = 25.sp, color = MaterialTheme.colorScheme.primary)
+                }
             }
             Text("주차 중에 사용하세요 · ${state.dvrStatus}", fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (state.exportTree != null) {
+                Text("자동 저장 폴더 지정됨 · ▣ 버튼으로 변경", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+            }
+            Text("앨범", fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MediaKind.entries.forEachIndexed { index, mediaKind ->
+                    val albumPage = state.pages[mediaKind]
+                    val cover = albumPage?.entries?.firstOrNull()?.let { state.thumbnails[it.key] }
+                    AlbumCard(mediaKind, albumPage?.entries?.size ?: 0, cover,
+                        Modifier.weight(1f), onClick = { tab = index; selected = arrayListOf() })
+                }
+            }
             if (state.recoveryBase != null) {
                 Surface(color = Color(0xFF553428), shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(top = 8.dp)) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -250,6 +279,18 @@ private fun MediaRow(name: String, thumbnailPath: String? = null, detail: String
                 if (open != null) TextButton(onClick = open, contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.heightIn(min = 32.dp)) { Text("▶ 재생") }
             }
+        }
+    }
+}
+
+@Composable
+private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Modifier, onClick: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(10.dp),
+        modifier = modifier.clickable(onClick = onClick)) {
+        Column(Modifier.padding(8.dp)) {
+            Thumbnail(path = cover)
+            Text(kind.label, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+            Text("${count}개", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
