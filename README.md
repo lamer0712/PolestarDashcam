@@ -49,7 +49,7 @@ adb shell am start -n com.polestar.dashcamexporter/.MainActivity
 
 Android 11(API 30) 이상이며 target SDK는 35입니다. 패키지는 `com.polestar.dashcamexporter`, 표시 이름은 **Dashcam Exporter**, 버전은 **0.3.0**입니다. Debug 서명 APK로 제공하며 OEM 시스템 UID나 OEM 서명을 사용하지 않습니다. 자동차 런처의 노출 및 일반 앱 설치 허용 여부는 차량 정책에 따릅니다.
 
-0.1.1부터 기본 조회 모드에서는 차량별 `status` JSON에 `usable`/`recording` 필드가 없어도 HTTP/JSON 응답 성공으로 연결을 확인하고 실제 `mediaDirList`를 계속 호출합니다. 상태 필드는 root 또는 `state`, `status`, `data`, `result` 객체에 있을 때 표시합니다. 목록 모드를 직접 변경할 때만 안전한 복귀를 위해 `usable`/`recording`을 필수로 확인합니다. 0.1.2부터 `mediaDirList`가 `Not in file-list mode`(403/409)로 응답하면 목록 모드로 자동 재시도하고 완료 후 `normal` 복귀를 확인합니다. 0.1.3부터 목록 항목에 DVR 썸네일을 표시하고 60 MiB를 넘는 파일도 Range 이어받기로 재시도합니다. 0.1.4부터 DVR이 bounded Range를 403으로 거부하면 open-ended Range로 자동 재시도하며, DVR 세션 쿠키도 유지합니다. 0.2.0부터 앱 실행 시 자동 연결하고 공용 미디어 폴더에 바로 저장하며 저장된 영상을 재생할 수 있습니다.
+0.1.1부터 기본 조회 모드에서는 차량별 `status` JSON에 `usable`/`recording` 필드가 없어도 HTTP/JSON 응답 성공으로 연결을 확인하고 실제 `mediaDirList`를 계속 호출합니다. 상태 필드는 root 또는 `state`, `status`, `data`, `result` 객체에 있을 때 표시합니다. 목록 모드를 직접 변경할 때만 안전한 복귀를 위해 `usable`/`recording`을 필수로 확인합니다. 0.1.2부터 `mediaDirList`가 `Not in file-list mode`(403/409)로 응답하면 목록 모드로 자동 재시도하고 완료 후 `normal` 복귀를 확인합니다. 0.1.3부터 목록 항목에 DVR 썸네일을 표시하고 60 MiB를 넘는 파일도 Range 이어받기로 재시도합니다. 0.1.4부터 DVR이 bounded Range를 403으로 거부하면 open-ended Range로 자동 재시도하며, DVR 세션 쿠키도 유지합니다. 0.2.0부터 앱 실행 시 자동 연결하고 공용 미디어 폴더에 바로 저장하며 저장된 영상을 재생할 수 있습니다. 0.3.0부터 OEM 갤러리식 앨범 카드와 사용자가 고른 폴더 자동 복사를 제공합니다.
 
 필수 권한은 인터넷·foreground data sync·wake lock입니다. Android 13 이상에서는 전송 알림 권한을 요청합니다. 알림을 거부해도 전송 자체는 가능합니다. 원하는 폴더를 지정할 때만 Android 시스템 폴더 선택기의 쓰기 권한을 사용하며, 광범위 저장소 권한·카메라·위치·차량 vendor 권한은 요청하지 않습니다.
 
