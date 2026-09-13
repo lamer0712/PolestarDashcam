@@ -12,6 +12,7 @@ import java.net.HttpURLConnection
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicLong
 
 data class SavedMedia(
     val file: File?,
@@ -178,6 +179,7 @@ class DownloadStore(private val root: File) {
         }
         val pool = Executors.newFixedThreadPool(PARALLEL_CONNECTIONS)
         val futures = mutableListOf<Future<Long>>()
+        val completedBytes = AtomicLong(0L)
         try {
             ranges.forEach { (index, first, last) ->
                 futures += pool.submit(Callable {
@@ -194,9 +196,12 @@ class DownloadStore(private val root: File) {
                         if (range.first != first || range.last != last || (range.total > 0 && range.total != media.size))
                             throw IOException("The DVR returned an unexpected range: ${range.first}-${range.last}.")
                         val length = last - first + 1
+                        var reported = 0L
                         connection.inputStream.use { input -> FileOutputStream(part).use { output ->
                             StreamCopy.copyChunk(input, output, length, stop) { done, _ ->
-                                progress(first + done, media.size)
+                                completedBytes.addAndGet(done - reported)
+                                reported = done
+                                progress(completedBytes.get(), media.size)
                             }
                             output.fd.sync()
                         } }
