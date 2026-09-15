@@ -295,7 +295,10 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 onChooseFolder = onChooseFolder
             )
             Row(Modifier.fillMaxSize()) {
-                GallerySidebar(savedSelected = savedOpen, onAlbums = ::leaveDetail, onSaved = {
+                GallerySidebar(savedSelected = savedOpen, onAlbums = {
+                    leaveDetail()
+                    controller.refresh()
+                }, onSaved = {
                     album = null
                     savedOpen = true
                     editMode = false
