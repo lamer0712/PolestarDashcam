@@ -163,6 +163,10 @@ class ExportController(private val app: Application) {
 
     fun enterPlaybackMode(onReady: () -> Unit) {
         val config = state.value
+        if (playbackBase == config.base && playbackHeartbeatRunning) {
+            onReady()
+            return
+        }
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -176,6 +180,26 @@ class ExportController(private val app: Application) {
                 onReady()
             } catch (e: Exception) {
                 reportError("Failed to enter playback mode: ${e.message ?: "No DVR response"}")
+            }
+        }
+    }
+
+    /** Keeps DVR in file-list mode from the moment a DVR album is opened, matching OEM Gallery. */
+    fun enterDvrBrowsingMode() {
+        val config = state.value
+        if (playbackBase == config.base && playbackHeartbeatRunning) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val api = DvrApi(config.base)
+                    val status = api.status()
+                    if (!status.usable) throw IOException("DVR storage is unavailable.")
+                    if (status.recording != "in-file-list") api.setMode("enter-file-list")
+                }
+                playbackBase = config.base
+                startPlaybackHeartbeat(DvrApi(config.base))
+            } catch (e: Exception) {
+                reportError("Failed to enter DVR album mode: ${e.message ?: "No DVR response"}")
             }
         }
     }

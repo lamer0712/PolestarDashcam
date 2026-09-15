@@ -240,6 +240,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         previewKey = null
     }
     fun openAlbum(kind: MediaKind) {
+        controller.enterDvrBrowsingMode()
         album = kind
         savedOpen = false
         editMode = false
@@ -321,6 +322,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     leaveDetail()
                     controller.refresh()
                 }, onSaved = {
+                    controller.exitPlaybackMode()
                     album = null
                     savedOpen = true
                     editMode = false
