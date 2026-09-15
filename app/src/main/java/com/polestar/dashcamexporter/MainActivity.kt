@@ -26,6 +26,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -267,7 +269,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                                 disabledContentColor = Color(0xFFBBA6A4)
                             ),
                             modifier = Modifier.heightIn(min = 52.dp)
-                        ) { Text("Delete") }
+                        ) { Icon(Icons.Default.Delete, contentDescription = "Delete") }
                         // USB copy and sharing remain hidden until vehicle validation.
                     } else {
                         Button(onClick = {
