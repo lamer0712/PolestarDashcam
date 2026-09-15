@@ -29,6 +29,8 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -386,7 +388,8 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
             if (inDetail) {
                 if (editMode) {
                     IconButton(onClick = onEdit, modifier = Modifier.size(64.dp)) {
-                        Text("×", color = Color.White, fontSize = 42.sp)
+                        Icon(Icons.Default.Close, contentDescription = "Exit selection", tint = Color.White,
+                            modifier = Modifier.size(32.dp))
                     }
                 } else {
                     Button(
@@ -401,7 +404,8 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                 }
             } else {
                 IconButton(onClick = onChooseFolder, enabled = !busy, modifier = Modifier.size(56.dp)) {
-                    Text("⚙", fontSize = 36.sp, color = Color(0xFFA3F0D5))
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color(0xFFA3F0D5),
+                        modifier = Modifier.size(32.dp))
                 }
             }
         }
