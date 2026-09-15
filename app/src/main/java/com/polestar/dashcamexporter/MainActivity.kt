@@ -461,7 +461,9 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
             Modifier.fillMaxWidth().height(48.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (local) "${state.saved.size} files" else "${remote.size} files",
+            val reportedCount = if (!local) state.directories.firstOrNull { it.kind == kind }?.count ?: -1 else -1
+            val totalCount = if (local || reportedCount < 0) (if (local) state.saved.size else remote.size) else reportedCount
+            Text("$totalCount files",
                 color = Color(0xFFB8B8B8), fontSize = 18.sp, modifier = Modifier.weight(1f))
             if (editMode) TextButton(onClick = onSelectAll, enabled = keys.isNotEmpty() && !state.busy) {
                 Text(if (selection.size == keys.size && keys.isNotEmpty()) "Deselect all" else "Select all")
