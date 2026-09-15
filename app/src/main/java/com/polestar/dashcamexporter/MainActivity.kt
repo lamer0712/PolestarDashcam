@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Usb
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -116,7 +117,7 @@ class MainActivity : ComponentActivity() {
                         pendingCopies.clear()
                         controller.message("This vehicle has no system folder picker. Use sharing instead.")
                     } catch (e: Exception) { pendingCopies.clear(); controller.message(e.message.orEmpty()) }
-                }, onChooseFolder = {
+                }, onUsb = controller::copyToUsb, onChooseFolder = {
                     try {
                         destinationPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
@@ -147,10 +148,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedia>) -> Unit,
                          onOpen: (SavedMedia) -> Unit, onShare: (List<SavedMedia>) -> Unit,
-                         onFolder: (List<SavedMedia>) -> Unit, onChooseFolder: () -> Unit) {
+                         onFolder: (List<SavedMedia>) -> Unit, onUsb: (List<SavedMedia>) -> Unit,
+                         onChooseFolder: () -> Unit) {
     val state by controller.state.collectAsState()
     var showInitialFolderPrompt by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { controller.autoConnect() }
+    LaunchedEffect(Unit) {
+        while (true) {
+            controller.refreshUsbState()
+            kotlinx.coroutines.delay(2_000L)
+        }
+    }
     LaunchedEffect(state.exportTree) {
         if (controller.shouldPromptInitialFolder()) {
             showInitialFolderPrompt = true
@@ -259,6 +267,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 } else if (inDetail) {
                     Text("${selection.size} selected", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
+                        Button(onClick = { onUsb(state.saved.filter { it.key in selection }) },
+                            enabled = selection.isNotEmpty() && state.usbConnected && !state.busy,
+                            modifier = Modifier.heightIn(min = 52.dp)) {
+                            Icon(Icons.Default.Usb, contentDescription = "Copy to USB")
+                            Spacer(Modifier.width(6.dp)); Text("Copy to USB")
+                        }
                         Button(
                             onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) },
                             enabled = selection.isNotEmpty() && !state.busy,

@@ -3,7 +3,9 @@ package com.polestar.dashcamexporter
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.provider.DocumentsContract
+import android.os.storage.StorageManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +39,8 @@ data class ExportState(
     val message: String = "",
     val errorMessage: String? = null,
     val recoveryBase: String? = null,
-    val exportTree: Uri? = null
+    val exportTree: Uri? = null,
+    val usbConnected: Boolean = false
 )
 
 class ExporterApplication : Application() {
@@ -86,6 +89,13 @@ class ExportController(private val app: Application) {
     }
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
+
+    fun refreshUsbState() {
+        val connected = app.getSystemService(StorageManager::class.java).storageVolumes.any {
+            it.isRemovable && it.state == Environment.MEDIA_MOUNTED && it.directory != null
+        }
+        mutable.update { if (it.usbConnected == connected) it else it.copy(usbConnected = connected) }
+    }
 
     fun shouldPromptInitialFolder(): Boolean =
         state.value.exportTree == null && !preferences.getBoolean("initialFolderPromptedV1", false)
@@ -457,6 +467,28 @@ class ExportController(private val app: Application) {
             }
             mutable.update { it.copy(saved = visibleSaved()) }
             "${deleted} file(s) deleted."
+        }
+    }
+
+    fun copyToUsb(items: List<SavedMedia>) {
+        if (items.isEmpty() || !state.value.usbConnected) return
+        transfer("Copying selected files to USB") {
+            val volume = app.getSystemService(StorageManager::class.java).storageVolumes.firstOrNull {
+                it.isRemovable && it.state == Environment.MEDIA_MOUNTED
+            } ?: throw IOException("Connect a USB drive and try again.")
+            val root = volume.directory ?: throw IOException("The connected USB drive has no accessible root.")
+            val destination = File(root, "polestar_dashcam")
+            if (!destination.exists() && !destination.mkdirs()) throw IOException("Unable to create polestar_dashcam on USB.")
+            items.forEachIndexed { index, item ->
+                stop.check()
+                val target = File(destination, item.name)
+                openSavedInput(item).use { input -> target.outputStream().use { output ->
+                    StreamCopy.copy(input, output, item.size, stop) { done, total ->
+                        progress(index + 1, items.size, item.name, done, total)
+                    }
+                } }
+            }
+            "Copied ${items.size} file(s) to USB."
         }
     }
 
