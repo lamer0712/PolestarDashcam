@@ -399,7 +399,7 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                     ) {
                         Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Select", fontSize = 22.sp)
+                        Text("Select", fontSize = 18.sp)
                     }
                 }
             } else {
