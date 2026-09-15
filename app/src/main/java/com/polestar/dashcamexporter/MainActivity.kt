@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -388,8 +389,15 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                         Text("×", color = Color.White, fontSize = 42.sp)
                     }
                 } else {
-                    TextButton(onClick = onEdit, modifier = Modifier.height(56.dp)) {
-                        Text("Select", color = Color(0xFFA3F0D5), fontSize = 24.sp)
+                    OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.height(56.dp).widthIn(min = 142.dp),
+                        border = BorderStroke(1.dp, Color(0xFFA3F0D5)),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Select", color = Color(0xFFA3F0D5), fontSize = 22.sp)
                     }
                 }
             } else {
