@@ -260,7 +260,9 @@ class ExportController(private val app: Application) {
         if (!status.usable) throw IOException("DVR usable=false: check the storage.")
         // Do not take ownership of a list session entered by the OEM gallery.
         if (status.recording == "in-file-list") return action()
-        if (status.recording != "normal") throw IOException("DVR state ${status.recording}: cannot enter list mode.")
+        // OEM Gallery treats every non-file-list state (including "off") as
+        // eligible for a file-list transition and lets the DVR decide whether
+        // the transition is allowed.
         rememberRecovery(api.base)
         var failure: Throwable? = null
         val heartbeatRunning = AtomicBoolean(true)
