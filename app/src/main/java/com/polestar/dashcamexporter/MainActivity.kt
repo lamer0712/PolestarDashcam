@@ -281,7 +281,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                             }
                         }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
                             modifier = Modifier.heightIn(min = 52.dp)) {
-                            Icon(painterResource(R.drawable.ic_chrome_download), contentDescription = "Download")
+                            Icon(painterResource(R.drawable.ic_chrome_download), contentDescription = "Download",
+                                modifier = Modifier.size(24.dp))
                         }
                     }
                 }
