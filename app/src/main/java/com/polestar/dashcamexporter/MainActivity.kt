@@ -389,15 +389,14 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                         Text("×", color = Color.White, fontSize = 42.sp)
                     }
                 } else {
-                    OutlinedButton(
+                    Button(
                         onClick = onEdit,
                         modifier = Modifier.height(56.dp).widthIn(min = 142.dp),
-                        border = BorderStroke(1.dp, Color(0xFFA3F0D5)),
                         contentPadding = PaddingValues(horizontal = 16.dp)
                     ) {
                         Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Select", color = Color(0xFFA3F0D5), fontSize = 22.sp)
+                        Text("Select", fontSize = 22.sp)
                     }
                 }
             } else {
