@@ -248,7 +248,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         Button(onClick = {
                             onDownload(remote.filter { it.key in selection })
                         }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("Export") }
+                            modifier = Modifier.heightIn(min = 52.dp)) { Text("Download") }
                     }
                 }
             }
@@ -472,7 +472,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                 Column(Modifier.fillMaxWidth().padding(vertical = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (local) "No saved files" else "No files", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
-                    Text(if (local) "Export videos from an album first." else "The DVR did not return files for this album.",
+                    Text(if (local) "Download videos from an album first." else "The DVR did not return files for this album.",
                         color = Color(0xFFB8B8B8), fontSize = 18.sp)
                 }
             }
