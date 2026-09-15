@@ -145,11 +145,11 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                          onOpen: (SavedMedia) -> Unit, onShare: (List<SavedMedia>) -> Unit,
                          onFolder: (List<SavedMedia>) -> Unit, onChooseFolder: () -> Unit) {
     val state by controller.state.collectAsState()
+    var showInitialFolderPrompt by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { controller.autoConnect() }
     LaunchedEffect(state.exportTree) {
         if (controller.shouldPromptInitialFolder()) {
-            controller.markInitialFolderPrompted()
-            onChooseFolder()
+            showInitialFolderPrompt = true
         }
     }
     LaunchedEffect(state.message) {
@@ -161,6 +161,29 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
             title = { Text("작업 오류") },
             text = { Text(error, color = Color.White) },
             confirmButton = { TextButton(onClick = controller::clearError) { Text("확인") } }
+        )
+    }
+    if (showInitialFolderPrompt) {
+        AlertDialog(
+            onDismissRequest = {
+                showInitialFolderPrompt = false
+                controller.markInitialFolderPrompted()
+            },
+            title = { Text("다운로드 폴더 지정") },
+            text = { Text("대시캠 영상을 다운로드하기 전에 저장할 폴더를 지정해 주세요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showInitialFolderPrompt = false
+                    controller.markInitialFolderPrompted()
+                    onChooseFolder()
+                }) { Text("폴더 선택") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showInitialFolderPrompt = false
+                    controller.markInitialFolderPrompted()
+                }) { Text("나중에") }
+            }
         )
     }
     LaunchedEffect(state.recoveryBase) {
