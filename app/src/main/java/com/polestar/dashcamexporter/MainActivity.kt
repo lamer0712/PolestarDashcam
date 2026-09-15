@@ -394,8 +394,8 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                 } else {
                     Button(
                         onClick = onEdit,
-                        modifier = Modifier.height(56.dp).widthIn(min = 142.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        modifier = Modifier.height(48.dp).widthIn(min = 120.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(8.dp))
