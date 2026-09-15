@@ -28,15 +28,15 @@ class TransferService : Service() {
         running = true
         workInProgress = true
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("transfer", "파일 전송", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel("transfer", "File transfer", NotificationManager.IMPORTANCE_LOW))
         fun notification(text: String) = NotificationCompat.Builder(this, "transfer")
             .setSmallIcon(R.drawable.ic_dashcam).setContentTitle("Gallery+")
             .setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
-            .addAction(0, "취소", PendingIntent.getService(this, 1,
+            .addAction(0, "Cancel", PendingIntent.getService(this, 1,
                 Intent(this, TransferService::class.java).setAction("cancel"), PendingIntent.FLAG_IMMUTABLE))
             .build()
-        startForeground(1, notification("파일 전송 준비 중"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        startForeground(1, notification("Preparing file transfer"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dashcam:transfer")
             .apply { acquire(6 * 60 * 60 * 1000L) }
         scope.launch {
@@ -44,7 +44,7 @@ class TransferService : Service() {
             try { controller.runPendingTransfer() }
             finally {
                 if (controller.state.value.busy) {
-                    controller.reportError("파일 전송 서비스가 중단되었습니다. 다시 시도해 주세요.")
+                    controller.reportError("File transfer service stopped. Please try again.")
                 }
                 workInProgress = false
                 updates.cancel()

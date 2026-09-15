@@ -71,15 +71,15 @@ class MainActivity : ComponentActivity() {
         val tree = result.data?.data
         if (result.resultCode == RESULT_OK && tree != null) {
             val flags = result.data!!.flags
-            if (flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION == 0) controller.message("선택 폴더에 쓰기 권한이 없습니다.")
-            else if (files.isEmpty()) controller.message("복사할 파일을 다시 선택하세요.")
+            if (flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION == 0) controller.message("The selected folder is not writable.")
+            else if (files.isEmpty()) controller.message("Select files to copy again.")
             else controller.copyToFolder(files, tree)
-        } else controller.message("폴더 선택을 취소했습니다.")
+        } else controller.message("Folder selection cancelled.")
     }
     private val destinationPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val tree = result.data?.data
         if (result.resultCode == RESULT_OK && tree != null) controller.setExportFolder(tree)
-        else if (result.resultCode == RESULT_CANCELED) controller.message("저장 폴더 선택을 취소했습니다.")
+        else if (result.resultCode == RESULT_CANCELED) controller.message("Save folder selection cancelled.")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,12 +95,12 @@ class MainActivity : ComponentActivity() {
                     requestNotifications()
                     controller.download(it)
                 }, onOpen = { file ->
-                    try { startActivity(Intent.createChooser(ShareFiles.viewIntent(this, file), "영상 재생")) }
-                    catch (e: ActivityNotFoundException) { controller.message("이 파일을 재생할 수 있는 앱이 없습니다.") }
+                    try { startActivity(Intent.createChooser(ShareFiles.viewIntent(this, file), "Play video")) }
+                    catch (e: ActivityNotFoundException) { controller.message("No app can play this file.") }
                     catch (e: Exception) { controller.message(e.message.orEmpty()) }
                 }, onShare = { files ->
-                    try { startActivity(Intent.createChooser(ShareFiles.intent(this, files), "공유 / 메일로 보내기")) }
-                    catch (e: ActivityNotFoundException) { controller.message("파일 공유를 처리할 앱이 없습니다. 폴더 저장을 이용하세요.") }
+                    try { startActivity(Intent.createChooser(ShareFiles.intent(this, files), "Share / send by email")) }
+                    catch (e: ActivityNotFoundException) { controller.message("No app can handle file sharing. Use folder copy.") }
                     catch (e: Exception) { controller.message(e.message.orEmpty()) }
                 }, onFolder = { files ->
                     pendingCopies = ArrayList(files.map { it.key })
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
                         })
                     } catch (e: ActivityNotFoundException) {
                         pendingCopies.clear()
-                        controller.message("이 차량에 시스템 폴더 선택기가 없습니다. 공유 기능을 이용하세요.")
+                        controller.message("This vehicle has no system folder picker. Use sharing instead.")
                     } catch (e: Exception) { pendingCopies.clear(); controller.message(e.message.orEmpty()) }
                 }, onChooseFolder = {
                     try {
@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
                                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         })
-                    } catch (e: Exception) { controller.message("폴더 선택기를 열 수 없습니다: ${e.message}") }
+                    } catch (e: Exception) { controller.message("Unable to open folder picker: ${e.message}") }
                 })
             }
         }
@@ -158,9 +158,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     state.errorMessage?.let { error ->
         AlertDialog(
             onDismissRequest = controller::clearError,
-            title = { Text("작업 오류") },
+            title = { Text("Task error") },
             text = { Text(error, color = Color.White) },
-            confirmButton = { TextButton(onClick = controller::clearError) { Text("확인") } }
+            confirmButton = { TextButton(onClick = controller::clearError) { Text("OK") } }
         )
     }
     if (showInitialFolderPrompt) {
@@ -169,25 +169,25 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 showInitialFolderPrompt = false
                 controller.markInitialFolderPrompted()
             },
-            title = { Text("다운로드 폴더 지정") },
-            text = { Text("대시캠 영상을 다운로드하기 전에 저장할 폴더를 지정해 주세요.") },
+            title = { Text("Choose download folder") },
+            text = { Text("Choose a folder for dashcam videos before downloading.") },
             confirmButton = {
                 TextButton(onClick = {
                     showInitialFolderPrompt = false
                     controller.markInitialFolderPrompted()
                     onChooseFolder()
-                }) { Text("폴더 선택") }
+                }) { Text("Choose folder") }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showInitialFolderPrompt = false
                     controller.markInitialFolderPrompted()
-                }) { Text("나중에") }
+                }) { Text("Later") }
             }
         )
     }
     LaunchedEffect(state.recoveryBase) {
-        if (state.recoveryBase != null) Toast.makeText(controller.appContext, "DVR 녹화 복귀 확인이 필요합니다.", Toast.LENGTH_LONG).show()
+        if (state.recoveryBase != null) Toast.makeText(controller.appContext, "DVR recording recovery is required.", Toast.LENGTH_LONG).show()
     }
     var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
     var savedOpen by rememberSaveable { mutableStateOf(false) }
@@ -240,7 +240,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (state.busy) {
-                    Text(state.progressText.ifBlank { "작업 중" }, Modifier.widthIn(max = 560.dp), color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(state.progressText.ifBlank { "Working" }, Modifier.widthIn(max = 560.dp), color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val fraction = state.fraction
                     if (fraction == null) {
                         LinearProgressIndicator(Modifier.weight(1f))
@@ -251,9 +251,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         Text("${(fraction * 100f).roundToInt()}%", color = Color.White, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.widthIn(min = 52.dp))
                     }
-                    TextButton(onClick = controller::cancel) { Text("취소") }
+                    TextButton(onClick = controller::cancel) { Text("Cancel") }
                 } else if (inDetail) {
-                    Text("${selection.size}개 선택", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
+                    Text("${selection.size} selected", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
                         Button(
                             onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) },
@@ -265,8 +265,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                                 disabledContentColor = Color(0xFFBBA6A4)
                             ),
                             modifier = Modifier.heightIn(min = 52.dp)
-                        ) { Text("삭제") }
-                        // USB 저장과 공유는 차량 검증 전까지 임시로 숨깁니다.
+                        ) { Text("Delete") }
+                        // USB copy and sharing remain hidden until vehicle validation.
                     } else {
                         Button(onClick = {
                             if (state.exportTree == null) {
@@ -366,7 +366,7 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
                     }
                 } else {
                     TextButton(onClick = onEdit, modifier = Modifier.height(56.dp)) {
-                        Text("선택", color = Color(0xFFA3F0D5), fontSize = 24.sp)
+                        Text("Select", color = Color(0xFFA3F0D5), fontSize = 24.sp)
                     }
                 }
             } else {
@@ -565,12 +565,12 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
     ) {
         Box {
             if (videoUrl != null) InlineVideo(url = videoUrl)
-            else if (thumbnail != null) Image(thumbnail, contentDescription = "썸네일", contentScale = ContentScale.Crop,
+            else if (thumbnail != null) Image(thumbnail, contentDescription = "Thumbnail", contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize())
             else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp, fillFrame = true)
             if (playing) {
                 Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
-                    Text("재생 중", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                    Text("Playing", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
                 }
             }
             if (selected) Box(Modifier.matchParentSize().background(Color(0x33000000)))
@@ -664,7 +664,7 @@ private fun InlineVideo(url: String) {
         }
         failureText?.let { message ->
             Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
-            Text("재생 실패\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
+            Text("Playback failed\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
             }
         }
     }
@@ -680,7 +680,7 @@ private fun generatePlaybackError(error: PlaybackException): String {
         }
         cause = cause.cause
     }
-    return error.cause?.message ?: "DVR 응답을 읽지 못했습니다."
+    return error.cause?.message ?: "Unable to read DVR response."
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -816,7 +816,7 @@ private fun Thumbnail(path: String?, width: androidx.compose.ui.unit.Dp = 72.dp,
         }
     }
     val frameModifier = if (fillFrame) Modifier.fillMaxSize() else Modifier.size(width = width, height = height)
-    if (bitmap != null) Image(bitmap!!, contentDescription = "썸네일", contentScale = ContentScale.Crop,
+    if (bitmap != null) Image(bitmap!!, contentDescription = "Thumbnail", contentScale = ContentScale.Crop,
         modifier = frameModifier.clip(RoundedCornerShape(radius)))
     else Surface(color = Color(0xFF252525), shape = RoundedCornerShape(radius),
         modifier = frameModifier) {

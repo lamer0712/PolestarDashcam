@@ -15,7 +15,7 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
 enum class MediaKind(val api: String, val label: String) {
-    NORMAL("normal", "일반"), EMERGENCY("emergency", "긴급"), PHOTO("photo", "사진");
+    NORMAL("normal", "Normal"), EMERGENCY("emergency", "Emergency"), PHOTO("photo", "Photo");
     companion object { fun from(value: String) = entries.firstOrNull { it.api == value } }
 }
 
@@ -43,7 +43,7 @@ data class DvrMedia(
     }
 }
 
-class UserCancelledException : IOException("작업을 취소했습니다.")
+class UserCancelledException : IOException("Operation cancelled.")
 
 class StopToken {
     private val stopped = AtomicBoolean(false)
@@ -54,14 +54,14 @@ class StopToken {
 object DvrJson {
     fun objectFrom(text: String): JSONObject {
         val json = try { JSONObject(text) } catch (e: Exception) {
-            throw IOException("DVR JSON 응답을 해석할 수 없습니다.", e)
+            throw IOException("Unable to parse DVR JSON response.", e)
         }
         val result = json.opt("result")
         if ((json.has("error") && json.optInt("error", -1) != 0) ||
             (result is String && result != "ok")) {
             val code = json.optInt("error", -1)
             val detail = json.optString("message", json.toString()).take(240)
-            throw IOException("DVR 오류${if (code >= 0) " (code $code)" else ""}: $detail")
+            throw IOException("DVR error${if (code >= 0) " (code $code)" else ""}: $detail")
         }
         return json
     }
@@ -88,31 +88,31 @@ object DvrJson {
     }
 
     fun status(text: String): DvrStatus = statusOrNull(text)
-        ?: throw IOException("status 응답에 usable/recording이 없습니다.")
+        ?: throw IOException("status response is missing usable/recording.")
 
     fun directories(text: String): List<MediaDirectory> {
         val array = objectFrom(text).optJSONArray("mediaList")
-            ?: throw IOException("mediaDirList 응답에 mediaList가 없습니다.")
+            ?: throw IOException("mediaDirList response is missing mediaList.")
         val dirs = (0 until array.length()).mapNotNull { index ->
             val obj = array.getJSONObject(index)
             val kind = MediaKind.from(obj.optString("mediaType")) ?: return@mapNotNull null
             val path = obj.optString("mediaPath")
-            if (path.isBlank()) throw IOException("${kind.api}: mediaPath가 비어 있습니다.")
+            if (path.isBlank()) throw IOException("${kind.api}: mediaPath is empty.")
             MediaDirectory(kind, path, obj.optInt("fileCount", -1))
         }
         if (dirs.map { it.kind }.distinct().size != dirs.size)
-            throw IOException("동일 분류의 mediaPath가 여러 개입니다. 응답 확인이 필요합니다.")
+            throw IOException("Multiple mediaPath entries exist for the same category. Check the response.")
         return dirs
     }
 
     fun files(text: String, directory: MediaDirectory, base: String): List<DvrMedia> {
         val array = objectFrom(text).optJSONArray("fileList")
-            ?: throw IOException("filelist 응답에 fileList가 없습니다.")
+            ?: throw IOException("filelist response is missing fileList.")
         return (0 until array.length()).map { index ->
             val obj = array.getJSONObject(index)
             val name = obj.optString("name")
             val type = obj.optString("mediaType", directory.kind.api)
-            if (type != directory.kind.api) throw IOException("파일 분류가 요청과 다릅니다: $type")
+            if (type != directory.kind.api) throw IOException("File category differs from request: $type")
             DvrMedia(directory.kind, obj.optString("id", name), name,
                 obj.optLong("size", 0).coerceAtLeast(0), obj.optLong("dateTime", 0),
                 obj.optInt("duration", 0), mediaUrl(base, directory.path, name))
@@ -120,20 +120,20 @@ object DvrJson {
     }
 
     fun baseUrl(value: String): String {
-        val uri = try { URI(value.trim()) } catch (e: Exception) { throw IOException("DVR 주소 형식이 잘못되었습니다.", e) }
+        val uri = try { URI(value.trim()) } catch (e: Exception) { throw IOException("Invalid DVR address format.", e) }
         if (uri.scheme != "http" || uri.host !in setOf("198.18.37.20", "127.0.0.1", "localhost", "10.0.2.2") ||
             uri.userInfo != null || uri.query != null || uri.fragment != null ||
             uri.path !in listOf("", "/") || uri.port !in -1..65535 || uri.port == 0)
-            throw IOException("DVR 주소 또는 테스트 주소(http://127.0.0.1:8765)를 입력하세요.")
+            throw IOException("Enter the DVR address or test address (http://127.0.0.1:8765).")
         return uri.toString().trimEnd('/')
     }
 
     fun mediaUrl(base: String, mediaPath: String, name: String): String {
         if (name.isBlank() || name in listOf(".", "..") || name.any { it == '/' || it == '\\' || it.code < 32 })
-            throw IOException("잘못된 DVR 파일명입니다.")
+            throw IOException("Invalid DVR filename.")
         val segments = mediaPath.trim('/').split('/').filter { it.isNotEmpty() }
         if (segments.isEmpty() || segments.any { it == "." || it == ".." || ':' in it || '\\' in it || it.any { ch -> ch.code < 32 } })
-            throw IOException("잘못된 mediaPath입니다.")
+            throw IOException("Invalid mediaPath.")
         val path = (segments + name).joinToString("/") {
             // API fields are raw filenames; escape once, including literal percent signs.
             URI(null, null, "/$it", null).toASCIIString().removePrefix("/")
@@ -157,11 +157,11 @@ class DvrApi(val base: String) {
             requireOk(connection)
             val contentType = connection.contentType.orEmpty().lowercase()
             if (!contentType.startsWith("image/"))
-                throw IOException("썸네일 대신 다른 응답을 받았습니다: ${contentType.ifBlank { "형식 미상" }}")
+                throw IOException("Received a non-thumbnail response: ${contentType.ifBlank { "unknown format" }}")
             val declared = connection.getHeaderFieldLong("Content-Length", -1)
-            if (declared > MAX_THUMBNAIL_BYTES) throw IOException("DVR 썸네일이 너무 큽니다.")
+            if (declared > MAX_THUMBNAIL_BYTES) throw IOException("DVR thumbnail is too large.")
             val bytes = connection.inputStream.use { readLimited(it, MAX_THUMBNAIL_BYTES + 1) }
-            if (bytes.isEmpty() || bytes.size > MAX_THUMBNAIL_BYTES) throw IOException("DVR 썸네일 응답이 비정상입니다.")
+            if (bytes.isEmpty() || bytes.size > MAX_THUMBNAIL_BYTES) throw IOException("Invalid DVR thumbnail response.")
             return bytes
         } finally { connection.disconnect() }
     }
@@ -170,13 +170,13 @@ class DvrApi(val base: String) {
         require(recording == "normal" || recording == "enter-file-list")
         val body = JSONObject().put("app", "gallery").put("recording", recording).toString()
         val result = DvrJson.objectFrom(json("/status", body))
-        if (result.optString("result") != "ok") throw IOException("DVR 모드 변경이 확인되지 않았습니다.")
+        if (result.optString("result") != "ok") throw IOException("DVR mode change was not confirmed.")
         val expected = if (recording == "normal") "normal" else "in-file-list"
         repeat(5) {
             if (status().recording == expected) return
             Thread.sleep(250)
         }
-        throw IOException("DVR 상태가 $expected 로 전환되지 않았습니다.")
+        throw IOException("DVR state did not switch to $expected.")
     }
 
     private fun json(path: String, body: String? = null): String {
@@ -190,7 +190,7 @@ class DvrApi(val base: String) {
             }
             requireOk(connection)
             val bytes = connection.inputStream.use { readLimited(it, 2 * 1024 * 1024 + 1) }
-            if (bytes.size > 2 * 1024 * 1024) throw IOException("DVR 목록 응답이 너무 큽니다.")
+            if (bytes.size > 2 * 1024 * 1024) throw IOException("DVR list response is too large.")
             return bytes.toString(Charsets.UTF_8)
         } finally { connection.disconnect() }
     }

@@ -26,7 +26,7 @@ data class ExportState(
     val base: String = DvrApi.DEFAULT_BASE,
     val useListMode: Boolean = true,
     val connected: Boolean = false,
-    val dvrStatus: String = "차량 DVR에 연결하세요",
+    val dvrStatus: String = "Connect to the vehicle DVR",
     val directories: List<MediaDirectory> = emptyList(),
     val pages: Map<MediaKind, CategoryPage> = emptyMap(),
     val thumbnails: Map<String, String> = emptyMap(),
@@ -60,7 +60,7 @@ class ExportController(private val app: Application) {
         recoveryBase = preferences.getString("recoveryBase", null),
         exportTree = preferences.getString("exportTree", null)?.let(Uri::parse),
         errorMessage = preferences.getString("lastError", null),
-        busy = true, progressText = "저장 파일 확인 중"
+        busy = true, progressText = "Checking saved files"
     ))
     val state = mutable.asStateFlow()
     val appContext: Application get() = app
@@ -99,7 +99,7 @@ class ExportController(private val app: Application) {
         preferences.edit().putString("exportTree", tree.toString()).apply()
         scope.launch {
             val saved = withContext(Dispatchers.IO) { visibleSaved(tree) }
-            mutable.update { it.copy(exportTree = tree, saved = saved, message = "저장 폴더를 선택했습니다. 이후 내보내기 파일이 이 폴더에 자동으로 복사됩니다.") }
+            mutable.update { it.copy(exportTree = tree, saved = saved, message = "Save folder selected. Downloads will be copied there automatically.") }
         }
     }
     fun configure(base: String, mode: Boolean): Boolean {
@@ -108,7 +108,7 @@ class ExportController(private val app: Application) {
             val validated = DvrJson.baseUrl(base)
             preferences.edit().putString("base", validated).putBoolean("listMode", mode).apply()
             mutable.update { it.copy(base = validated, useListMode = mode, connected = false,
-                pages = emptyMap(), directories = emptyList(), dvrStatus = "차량 DVR에 연결하세요", message = "설정을 저장했습니다.") }
+                pages = emptyMap(), directories = emptyList(), dvrStatus = "Connect to the vehicle DVR", message = "Settings saved.") }
             true
         } catch (e: Exception) { message(e.message.orEmpty()); false }
     }
@@ -116,7 +116,7 @@ class ExportController(private val app: Application) {
     private fun begin(label: String, recovery: Boolean = false): Boolean {
         if (state.value.busy) return false
         if (!recovery && state.value.recoveryBase != null) {
-            message("이전 DVR 세션의 녹화 복귀를 먼저 확인하세요."); return false
+            message("Confirm recovery of the previous DVR session first."); return false
         }
         stop = StopToken()
         preferences.edit().remove("lastError").apply()
@@ -128,8 +128,8 @@ class ExportController(private val app: Application) {
         try {
             message(withContext(Dispatchers.IO) { action() })
         } catch (e: Exception) {
-            val text = if (e is UserCancelledException) "작업을 취소했습니다. 이미 완료된 파일은 보관됩니다."
-                else e.message ?: "작업에 실패했습니다."
+            val text = if (e is UserCancelledException) "Operation cancelled. Completed files are kept."
+                else e.message ?: "Operation failed."
             if (e is UserCancelledException) message(text) else reportError(text)
         } finally {
             withContext(NonCancellable) {
@@ -157,14 +157,14 @@ class ExportController(private val app: Application) {
                 withContext(Dispatchers.IO) {
                     val api = DvrApi(config.base)
                     val status = api.status()
-                    if (!status.usable) throw IOException("DVR 저장장치를 사용할 수 없습니다.")
+                    if (!status.usable) throw IOException("DVR storage is unavailable.")
                     if (status.recording != "in-file-list") api.setMode("enter-file-list")
                 }
                 playbackBase = config.base
                 startPlaybackHeartbeat(DvrApi(config.base))
                 onReady()
             } catch (e: Exception) {
-                reportError("재생 모드 전환 실패: ${e.message ?: "DVR 응답 없음"}")
+                reportError("Failed to enter playback mode: ${e.message ?: "No DVR response"}")
             }
         }
     }
@@ -208,24 +208,24 @@ class ExportController(private val app: Application) {
     fun cancel() {
         if (!state.value.busy) return
         stop.cancel()
-        mutable.update { it.copy(progressText = "취소 중… 현재 응답 종료 후 녹화 상태를 정리합니다.") }
+        mutable.update { it.copy(progressText = "Cancelling… recording state will be restored after the current response ends.") }
     }
 
     private fun rememberRecovery(base: String?) {
         // Synchronous persistence happens before sending POST, so process death retains recovery information.
         if (!preferences.edit().apply {
                 if (base == null) remove("recoveryBase") else putString("recoveryBase", base)
-            }.commit()) throw IOException("DVR 세션 복구 정보를 저장하지 못했습니다.")
+            }.commit()) throw IOException("Unable to save DVR session recovery information.")
         mutable.update { it.copy(recoveryBase = base) }
     }
 
     private fun <T> session(api: DvrApi, enabled: Boolean, action: () -> T): T {
         if (!enabled) return action()
         val status = api.status()
-        if (!status.usable) throw IOException("DVR usable=false: 저장장치 상태를 확인하세요.")
+        if (!status.usable) throw IOException("DVR usable=false: check the storage.")
         // Do not take ownership of a list session entered by the OEM gallery.
         if (status.recording == "in-file-list") return action()
-        if (status.recording != "normal") throw IOException("DVR 상태 ${status.recording}: 목록 모드로 변경할 수 없습니다.")
+        if (status.recording != "normal") throw IOException("DVR state ${status.recording}: cannot enter list mode.")
         rememberRecovery(api.base)
         var failure: Throwable? = null
         val heartbeatRunning = AtomicBoolean(true)
@@ -261,7 +261,7 @@ class ExportController(private val app: Application) {
                 api.setMode("normal")
                 rememberRecovery(null)
             } catch (restore: Exception) {
-                val detail = "녹화 복귀를 확인하지 못했습니다. ‘녹화 복귀 재시도’를 누르세요. ${restore.message}"
+                val detail = "Recording recovery was not confirmed. Tap Retry recording recovery. ${restore.message}"
                 if (failure != null) failure.addSuppressed(restore)
                 mutable.update { it.copy(dvrStatus = detail) }
                 if (failure == null) throw IOException(detail, restore)
@@ -285,33 +285,33 @@ class ExportController(private val app: Application) {
             session(api, configured, action)
         } catch (error: IOException) {
             if (configured || !requiresFileListMode(error)) throw error
-            mutable.update { it.copy(message = "차량이 목록 모드를 요구해 잠시 전환합니다.") }
+            mutable.update { it.copy(message = "The vehicle requires list mode. Switching temporarily.") }
             session(api, enabled = true, action)
         }
     }
 
     fun recoverRecording() {
         val base = state.value.recoveryBase ?: return
-        if (!begin("녹화 복귀 확인 중", recovery = true)) return
+        if (!begin("Confirming recording recovery", recovery = true)) return
         scope.launch { finishWork {
             val api = DvrApi(base)
             if (api.status().recording != "normal") api.setMode("normal")
             rememberRecovery(null)
-            mutable.update { it.copy(dvrStatus = "녹화 상태 normal 확인") }
-            "DVR 녹화 상태 normal을 확인했습니다."
+            mutable.update { it.copy(dvrStatus = "Confirmed recording state: normal") }
+            "Confirmed DVR recording state: normal."
         } }
     }
 
     fun refresh() {
-        if (!begin("DVR 연결 확인 중")) return
+        if (!begin("Checking DVR connection")) return
         val config = state.value
         mutable.update { it.copy(connected = false, pages = emptyMap(), directories = emptyList()) }
         scope.launch { finishWork {
             val api = DvrApi(config.base)
             val status = api.statusOrNull()
-            if (status?.usable == false) throw IOException("DVR usable=false: 차량의 DVR 저장장치를 확인하세요.")
+            if (status?.usable == false) throw IOException("DVR usable=false: check the vehicle DVR storage.")
             mutable.update { it.copy(dvrStatus = if (status == null)
-                "status 응답 확인 · 목록 API 확인 중" else "DVR 응답 확인 · ${status.recording}") }
+                "Status response received · checking list API" else "DVR response received · ${status.recording}") }
             fun loadLists() {
                 stop.check()
                 val directories = api.directories()
@@ -321,26 +321,26 @@ class ExportController(private val app: Application) {
                     val directory = directories.firstOrNull { it.kind == kind }
                     if (directory == null) {
                         mutable.update { it.copy(pages = it.pages + (kind to CategoryPage(hasMore = false,
-                            error = "DVR 응답에 ${kind.api} 폴더가 없습니다."))) }
+                            error = "DVR response is missing the ${kind.api} folder."))) }
                     } else fetchPage(api, directory, reset = true)
                 }
             }
             sessionWithAutomaticMode(api, config.useListMode) { loadLists() }
             val count = state.value.pages.values.sumOf { it.entries.size }
             val errors = state.value.pages.values.count { it.error != null }
-            "${count}개 조회${if (errors > 0) " · 분류 $errors 개 오류: 해당 탭에서 재시도하세요." else " 완료"}"
+            "${count} files loaded${if (errors > 0) " · $errors category errors: retry in that tab." else " complete"}"
         } }
     }
 
     private fun fetchPage(api: DvrApi, directory: MediaDirectory, reset: Boolean) {
         val previous = if (reset) CategoryPage() else state.value.pages[directory.kind] ?: CategoryPage()
-        mutable.update { it.copy(progressText = "${directory.kind.label} 목록 ${previous.next}번부터 조회 중") }
+        mutable.update { it.copy(progressText = "Loading ${directory.kind.label} list from ${previous.next}") }
         try {
             val batch = api.files(directory, previous.next)
             stop.check()
             val combined = (previous.entries + batch).distinctBy { it.key }
             if (batch.isNotEmpty() && previous.entries.isNotEmpty() && combined.size == previous.entries.size)
-                throw IOException("DVR이 같은 페이지를 반복 반환했습니다. 새로고침하세요.")
+                throw IOException("The DVR returned the same page repeatedly. Refresh the list.")
             val page = CategoryPage(combined, previous.next + batch.size, batch.isNotEmpty())
             mutable.update { it.copy(pages = it.pages + (directory.kind to page)) }
             fetchThumbnails(api, batch)
@@ -359,7 +359,7 @@ class ExportController(private val app: Application) {
                 mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to existing.absolutePath)) }
                 continue
             }
-            mutable.update { it.copy(progressText = "${item.kind.label} 썸네일 ${index + 1}/${items.size} 받는 중") }
+            mutable.update { it.copy(progressText = "Receiving ${item.kind.label} thumbnail ${index + 1}/${items.size}") }
             try {
                 val file = thumbnailStore.fetch(api, item, stop)
                 if (file != null) {
@@ -380,12 +380,12 @@ class ExportController(private val app: Application) {
 
     fun more(kind: MediaKind) {
         val directory = state.value.directories.firstOrNull { it.kind == kind } ?: return
-        if (!begin("다음 목록 조회 중")) return
+        if (!begin("Loading next page")) return
         val config = state.value
         scope.launch { finishWork {
             val api = DvrApi(config.base)
             sessionWithAutomaticMode(api, config.useListMode) { fetchPage(api, directory, reset = false) }
-            state.value.pages[kind]?.error ?: "${kind.label} 목록을 갱신했습니다."
+            state.value.pages[kind]?.error ?: "${kind.label} List refreshed."
         } }
     }
 
@@ -395,7 +395,7 @@ class ExportController(private val app: Application) {
         try { ContextCompat.startForegroundService(app, Intent(app, TransferService::class.java)) }
         catch (e: Exception) {
             pendingTransfer = null
-            mutable.update { it.copy(busy = false, progressText = "", message = "전송 서비스를 시작하지 못했습니다: ${e.message}") }
+            mutable.update { it.copy(busy = false, progressText = "", message = "Unable to start transfer service: ${e.message}") }
         }
     }
 
@@ -408,10 +408,10 @@ class ExportController(private val app: Application) {
     fun download(items: List<DvrMedia>) {
         if (items.isEmpty()) return
         val config = state.value
-        transfer("선택 파일 다운로드 준비 중") {
+        transfer("Preparing selected file download") {
             val api = DvrApi(config.base)
             sessionWithAutomaticMode(api, config.useListMode) {
-                batch(items, "다운로드") { item, index ->
+                batch(items, "Download") { item, index ->
                     // Present one continuous per-file bar across the DVR download
                     // and optional user-folder copy.
                     fun phase(start: Float, weight: Float, label: String) =
@@ -433,32 +433,32 @@ class ExportController(private val app: Application) {
 
     fun deleteSaved(items: List<SavedMedia>) {
         if (items.isEmpty()) return
-        transfer("선택 파일 삭제 중") {
+        transfer("Deleting selected files") {
             var deleted = 0
             items.forEach { item ->
                 stop.check()
                 val ok = item.uri?.let { runCatching { DocumentsContract.deleteDocument(app.contentResolver, it) }.getOrDefault(false) }
                     ?: item.file?.let { it.delete() }
                     ?: false
-                if (!ok) throw IOException("파일을 삭제하지 못했습니다: ${item.name}")
+                if (!ok) throw IOException("Unable to delete file: ${item.name}")
                 deleted++
             }
             mutable.update { it.copy(saved = visibleSaved()) }
-            "${deleted}개 파일을 삭제했습니다."
+            "${deleted} file(s) deleted."
         }
     }
 
     fun copyToFolder(items: List<SavedMedia>, tree: Uri) {
         if (items.isEmpty()) return
-        transfer("선택 폴더에 복사 준비 중") {
+        transfer("Preparing folder copy") {
             val resolver = app.contentResolver
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
             val names = mutableSetOf<String>()
             val cursor = resolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
-                ?: throw IOException("선택 폴더를 읽을 수 없습니다.")
+                ?: throw IOException("Unable to read the selected folder.")
             cursor.use { while (it.moveToNext()) names += it.getString(0) }
-            batch(items, "폴더 복사") { item, index ->
+            batch(items, "Copy folder") { item, index ->
                 stop.check()
                 var name = item.name
                 var suffix = 1
@@ -468,10 +468,10 @@ class ExportController(private val app: Application) {
                         if (extension.isEmpty()) "" else ".$extension"
                 }
                 val document = DocumentsContract.createDocument(resolver, parent, item.mime, name)
-                    ?: throw IOException("파일을 만들 수 없습니다. USB 쓰기 권한을 확인하세요.")
+                    ?: throw IOException("Unable to create file. Check USB write access.")
                 names += name
                 try {
-                    val output = resolver.openOutputStream(document, "w") ?: throw IOException("파일을 열 수 없습니다.")
+                    val output = resolver.openOutputStream(document, "w") ?: throw IOException("Unable to open file.")
                     output.use { sink -> openSavedInput(item).use { input ->
                         StreamCopy.copy(input, sink, item.size, stop) { done, total ->
                             progress(index, items.size, item.name, done, total)
@@ -480,11 +480,11 @@ class ExportController(private val app: Application) {
                     } }
                     resolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use {
                         if (it.moveToFirst() && !it.isNull(0) && it.getLong(0) != item.size)
-                            throw IOException("복사된 파일 크기가 원본과 다릅니다.")
+                            throw IOException("Copied file size differs from the source.")
                     }
                 } catch (e: Exception) {
                     val deleted = runCatching { DocumentsContract.deleteDocument(resolver, document) }.getOrDefault(false)
-                    if (!deleted) throw IOException("${e.message} · 선택 폴더에 미완성 파일이 남았을 수 있습니다: $name", e)
+                    if (!deleted) throw IOException("${e.message} · An incomplete file may remain in the selected folder: $name", e)
                     throw e
                 }
             }
@@ -540,8 +540,8 @@ class ExportController(private val app: Application) {
     }
 
     private fun openSavedInput(item: SavedMedia): InputStream = item.uri?.let { uri ->
-        app.contentResolver.openInputStream(uri) ?: throw IOException("파일을 열 수 없습니다: ${item.name}")
-    } ?: item.file?.inputStream() ?: throw IOException("파일을 찾을 수 없습니다: ${item.name}")
+        app.contentResolver.openInputStream(uri) ?: throw IOException("Unable to open file: ${item.name}")
+    } ?: item.file?.inputStream() ?: throw IOException("File not found: ${item.name}")
 
     /** Copies one completed item to the remembered SAF folder during download. */
     private fun copyOneToFolder(item: SavedMedia, tree: Uri, index: Int, count: Int,
@@ -561,9 +561,9 @@ class ExportController(private val app: Application) {
                 if (extension.isEmpty()) "" else ".${extension}"
         }
         val document = DocumentsContract.createDocument(resolver, parent, item.mime, name)
-            ?: throw IOException("선택한 저장 폴더에 파일을 만들 수 없습니다.")
+            ?: throw IOException("Unable to create a file in the selected save folder.")
         try {
-            val output = resolver.openOutputStream(document, "w") ?: throw IOException("선택한 저장 폴더를 열 수 없습니다.")
+            val output = resolver.openOutputStream(document, "w") ?: throw IOException("Unable to open the selected save folder.")
             output.use { sink -> openSavedInput(item).use { input ->
                 StreamCopy.copy(input, sink, item.size, stop) { done, total ->
                     (progressCallback ?: { d, t -> progress(index, count, item.name, d, t) })(done, total)
@@ -595,9 +595,9 @@ class ExportController(private val app: Application) {
             }
         }
         if (errors.isNotEmpty()) {
-            throw IOException("$label $success/${items.size}개 완료\n" + errors.take(5).joinToString("\n"))
+            throw IOException("$label $success/${items.size} completed\n" + errors.take(5).joinToString("\n"))
         }
-        return "$label $success/${items.size}개 완료"
+        return "$label $success/${items.size} completed"
     }
 }
 

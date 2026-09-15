@@ -25,11 +25,11 @@ object PublicMediaStore {
             put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
-        val uri = resolver.insert(collection, values) ?: throw IOException("공용 미디어 폴더에 파일을 만들 수 없습니다.")
+        val uri = resolver.insert(collection, values) ?: throw IOException("Unable to create a public media file.")
         var complete = false
         try {
-            val output = resolver.openOutputStream(uri, "w") ?: throw IOException("공용 미디어 파일을 열 수 없습니다.")
-            output.use { sink -> (item.file ?: throw IOException("공용 폴더에 저장할 원본 파일을 찾을 수 없습니다.")).inputStream().use { input ->
+            val output = resolver.openOutputStream(uri, "w") ?: throw IOException("Unable to open the public media file.")
+            output.use { sink -> (item.file ?: throw IOException("Unable to find the source file for the public folder.")).inputStream().use { input ->
                 StreamCopy.copy(input, sink, item.size, stop, progress)
                 sink.flush()
             } }

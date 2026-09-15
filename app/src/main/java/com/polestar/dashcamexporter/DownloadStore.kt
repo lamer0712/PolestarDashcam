@@ -52,7 +52,7 @@ object StreamCopy {
             if (read < 0) break
             stop.check()
             if (expected > 0 && total + read > expected)
-                throw IOException("파일 크기가 예상보다 큽니다. 목록을 새로고침하세요.")
+                throw IOException("Received file is larger than expected. Refresh the list.")
             output.write(buffer, 0, read)
             total += read
             val now = System.nanoTime()
@@ -60,7 +60,7 @@ object StreamCopy {
         }
         stop.check()
         if (total == 0L || (expected > 0 && total != expected))
-            throw IOException("파일이 불완전합니다: $total / $expected bytes")
+            throw IOException("File is incomplete: $total / $expected bytes")
         progress(total, expected)
         return total
     }
@@ -73,7 +73,7 @@ object StreamCopy {
         while (total < expected) {
             stop.check()
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), expected - total).toInt())
-            if (read < 0) throw IOException("파일 스트림이 중간에 끝났습니다: $total / $expected bytes")
+            if (read < 0) throw IOException("File stream ended unexpectedly: $total / $expected bytes")
             if (read == 0) continue
             output.write(buffer, 0, read)
             total += read
@@ -112,7 +112,7 @@ class ThumbnailStore(private val root: File) {
             }
             stop.check()
             FileOutputStream(partial).use { output -> output.write(bytes); output.fd.sync() }
-            if (!partial.renameTo(target)) throw IOException("썸네일 캐시를 저장하지 못했습니다.")
+            if (!partial.renameTo(target)) throw IOException("Unable to save thumbnail cache.")
             return target
         } finally { partial.delete() }
     }
@@ -125,7 +125,7 @@ class ThumbnailStore(private val root: File) {
             retriever.setDataSource(media.url, mapOf("User-Agent" to "Gallery+"))
             stop.check()
             retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-        } ?: throw IOException("영상 스트림에서 첫 프레임을 추출하지 못했습니다.")
+        } ?: throw IOException("Unable to extract the first video frame.")
         return java.io.ByteArrayOutputStream().use { out ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
             bitmap.recycle()
@@ -259,15 +259,15 @@ class DownloadStore(private val root: File) {
         var completed = false
         try {
             val reserve = 32L * 1024 * 1024
-            if (root.usableSpace < expectedTotal.coerceAtLeast(0) + reserve) throw IOException("앱 저장 공간이 부족합니다.")
+            if (root.usableSpace < expectedTotal.coerceAtLeast(0) + reserve) throw IOException("App storage is full.")
             while (true) {
                 stop.check()
                 val offset = partial.length()
                 if (expectedTotal > 0 && offset == expectedTotal) break
                 if (expectedTotal > 0 && offset > expectedTotal)
-                    throw IOException("받은 파일이 목록 크기보다 큽니다. 목록을 새로고침하세요.")
+                    throw IOException("Received file is larger than the list size. Refresh the list.")
                 if (++connectionCount > MAX_CONNECTIONS)
-                    throw IOException("긴 파일 다운로드 연결 횟수가 너무 많습니다.")
+                    throw IOException("Too many long-file download connections.")
 
                 val requestUrl = if (galleryQueryFallbackTried) {
                     if (media.url.contains("?")) "${media.url}&app=gallery" else "${media.url}?app=gallery"
@@ -285,27 +285,27 @@ class DownloadStore(private val root: File) {
                     if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL)
                         DvrApi.requireOk(connection)
                     if (offset > 0 && code != HttpURLConnection.HTTP_PARTIAL)
-                        throw IOException("DVR이 긴 파일 이어받기(Range)를 지원하지 않습니다.")
+                        throw IOException("The DVR does not support long-file Range resume.")
 
                     val contentType = connection.contentType.orEmpty().lowercase()
                     if (contentType.startsWith("text/") || "json" in contentType || "xml" in contentType)
-                        throw IOException("영상 대신 오류 문서를 받았습니다: $contentType")
+                        throw IOException("Received an error document instead of video: $contentType")
 
                     val length = connection.getHeaderFieldLong("Content-Length", -1)
                     val expectedResponse = if (code == HttpURLConnection.HTTP_PARTIAL) {
                         val range = parseContentRange(connection.getHeaderField("Content-Range"))
-                            ?: throw IOException("DVR의 Content-Range 응답이 없습니다.")
-                        if (range.first != offset) throw IOException("DVR 이어받기 위치가 다릅니다: ${range.first} / $offset")
+                            ?: throw IOException("The DVR returned no Content-Range header.")
+                        if (range.first != offset) throw IOException("DVR resume offset differs: ${range.first} / $offset")
                         if (range.total > 0) {
                             if (media.size > 0 && range.total != media.size)
-                                throw IOException("목록과 다운로드 파일 크기가 다릅니다. 새로고침 후 다시 시도하세요.")
+                                throw IOException("List and downloaded file sizes differ. Refresh and try again.")
                             expectedTotal = range.total
                         }
                         val available = range.last - range.first + 1
                         minOf(available, RANGE_CHUNK_BYTES)
                     } else {
                         if (media.size > 0 && length > 0 && length != media.size)
-                            throw IOException("목록과 다운로드 파일 크기가 다릅니다. 새로고침 후 다시 시도하세요.")
+                            throw IOException("List and downloaded file sizes differ. Refresh and try again.")
                         if (expectedTotal == 0L && length > 0) expectedTotal = length
                         if (length > 0) length else expectedTotal
                     }
@@ -380,9 +380,9 @@ class DownloadStore(private val root: File) {
             }
             stop.check()
             if (partial.length() == 0L || (expectedTotal > 0 && partial.length() != expectedTotal))
-                throw IOException("파일이 불완전합니다: ${partial.length()} / $expectedTotal bytes")
+                throw IOException("File is incomplete: ${partial.length()} / $expectedTotal bytes")
             progress(partial.length(), expectedTotal)
-            if (!partial.renameTo(file)) throw IOException("완료 파일을 저장하지 못했습니다.")
+            if (!partial.renameTo(file)) throw IOException("Unable to save completed file.")
             completed = true
             return SavedMedia(file, media.kind)
         } finally {
