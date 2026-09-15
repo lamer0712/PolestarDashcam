@@ -66,6 +66,7 @@ class ExportController(private val app: Application) {
     val appContext: Application get() = app
     private var stop = StopToken()
     private var pendingTransfer: (() -> String)? = null
+    private val thumbnailRequests = mutableSetOf<String>()
     private var playbackBase: String? = null
     @Volatile private var playbackHeartbeatRunning = false
     private var playbackHeartbeat: Thread? = null
@@ -343,11 +344,22 @@ class ExportController(private val app: Application) {
                 throw IOException("The DVR returned the same page repeatedly. Refresh the list.")
             val page = CategoryPage(combined, previous.next + batch.size, batch.isNotEmpty())
             mutable.update { it.copy(pages = it.pages + (directory.kind to page)) }
-            fetchThumbnails(api, batch)
         } catch (e: UserCancelledException) { throw e }
         catch (e: Exception) {
             if (requiresFileListMode(e)) throw e
             mutable.update { it.copy(pages = it.pages + (directory.kind to previous.copy(error = e.message))) }
+        }
+    }
+
+    fun ensureThumbnail(item: DvrMedia) {
+        if (state.value.thumbnails.containsKey(item.key) || !thumbnailRequests.add(item.key)) return
+        scope.launch(Dispatchers.IO) {
+            try {
+                val file = thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())
+                if (file != null) mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
+            } catch (_: Exception) {
+                // Thumbnails are optional; leave the placeholder for failed items.
+            } finally { thumbnailRequests.remove(item.key) }
         }
     }
 

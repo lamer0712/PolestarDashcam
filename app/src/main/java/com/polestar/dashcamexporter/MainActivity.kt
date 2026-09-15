@@ -326,7 +326,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                             if (file.mime.startsWith("video/")) fullScreenSaved = file else fullScreenPhoto = file
                         },
                         onMore = { currentAlbum?.let(controller::more) },
-                        onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) }
+                        onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) },
+                        onThumbnail = controller::ensureThumbnail
                     )
                 } else {
                     AlbumHome(state = state, onAlbum = ::openAlbum)
@@ -456,7 +457,7 @@ private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Mod
 private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
                        remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean, previewKey: String?,
                        onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (DvrMedia) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
-                       onSelectAll: () -> Unit) {
+                       onSelectAll: () -> Unit, onThumbnail: (DvrMedia) -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     LaunchedEffect(gridState, page?.hasMore, page?.error, state.busy, remote.size) {
@@ -503,6 +504,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp))
                     }
                     gridItems(items, key = { it.key }) { item ->
+                        LaunchedEffect(item.key) { onThumbnail(item) }
                         DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
                             playing = previewKey == item.key, editMode = editMode,
                             onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onPreview = { onPreview(item) })
@@ -826,7 +828,7 @@ private fun Thumbnail(path: String?, width: androidx.compose.ui.unit.Dp = 72.dp,
                       fillFrame: Boolean = false) {
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, path) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            path?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+            path?.let { decodeThumbnail(it)?.asImageBitmap() }
         }
     }
     val frameModifier = if (fillFrame) Modifier.fillMaxSize() else Modifier.size(width = width, height = height)
@@ -836,6 +838,15 @@ private fun Thumbnail(path: String?, width: androidx.compose.ui.unit.Dp = 72.dp,
         modifier = frameModifier) {
         Box(contentAlignment = Alignment.Center) { Text("▱", color = Color(0xFF777777), fontSize = 72.sp) }
     }
+}
+
+private fun decodeThumbnail(path: String): android.graphics.Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    val maxDimension = 720
+    var sample = 1
+    while (bounds.outWidth / sample > maxDimension || bounds.outHeight / sample > maxDimension) sample *= 2
+    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
 }
 
 private fun formatTimestamp(value: Long): String? {
