@@ -269,7 +269,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         // USB 저장과 공유는 차량 검증 전까지 임시로 숨깁니다.
                     } else {
                         Button(onClick = {
-                            onDownload(remote.filter { it.key in selection })
+                            if (state.exportTree == null) {
+                                controller.message("Choose a download folder first.")
+                                onChooseFolder()
+                            } else {
+                                onDownload(remote.filter { it.key in selection })
+                            }
                         }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
                             modifier = Modifier.heightIn(min = 52.dp)) {
                             Icon(painterResource(R.drawable.ic_chrome_download), contentDescription = "Download")
