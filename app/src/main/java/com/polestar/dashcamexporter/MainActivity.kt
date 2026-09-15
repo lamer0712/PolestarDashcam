@@ -432,7 +432,9 @@ private fun AlbumHome(state: ExportState, onAlbum: (MediaKind) -> Unit) {
             MediaKind.entries.forEach { kind ->
                 val albumPage = state.pages[kind]
                 val cover = albumPage?.entries?.firstOrNull()?.let { state.thumbnails[it.key] }
-                AlbumCard(kind, albumPage?.entries?.size ?: 0, cover, Modifier.width(334.dp), onClick = { onAlbum(kind) })
+                val reportedCount = state.directories.firstOrNull { it.kind == kind }?.count ?: -1
+                val count = if (reportedCount >= 0) reportedCount else albumPage?.entries?.size ?: 0
+                AlbumCard(kind, count, cover, Modifier.width(334.dp), onClick = { onAlbum(kind) })
             }
         }
     }
