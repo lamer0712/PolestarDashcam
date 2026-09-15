@@ -248,7 +248,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         Button(onClick = {
                             onDownload(remote.filter { it.key in selection })
                         }, enabled = selection.isNotEmpty() && state.recoveryBase == null,
-                            modifier = Modifier.heightIn(min = 52.dp)) { Text("Download") }
+                            modifier = Modifier.heightIn(min = 52.dp)) {
+                            Icon(painterResource(R.drawable.ic_chrome_download), contentDescription = "Download")
+                        }
                     }
                 }
             }
