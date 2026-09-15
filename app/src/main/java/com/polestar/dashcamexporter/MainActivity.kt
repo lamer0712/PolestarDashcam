@@ -60,6 +60,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 class MainActivity : ComponentActivity() {
     private val controller get() = (application as ExporterApplication).controller
@@ -456,6 +458,15 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                        onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (DvrMedia) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    LaunchedEffect(gridState, page?.hasMore, page?.error, state.busy, remote.size) {
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collectLatest { lastVisible ->
+                val total = gridState.layoutInfo.totalItemsCount
+                if (!local && page != null && page.hasMore && lastVisible >= total - 4 && !state.busy) onMore()
+            }
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
         Row(
             Modifier.fillMaxWidth().height(48.dp),
@@ -473,6 +484,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
         }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 370.dp),
+            state = gridState,
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp),
@@ -498,11 +510,6 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                 }
                 if (page?.error != null) item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(page.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
-                }
-                if (page != null && (page.hasMore || page.error != null) && state.directories.any { it.kind == kind }) item(span = { GridItemSpan(maxLineSpan) }) {
-                    OutlinedButton(onClick = onMore, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                        Text(if (page.error != null) "Retry" else "Load more")
-                    }
                 }
             }
             if (keys.isEmpty() && !state.busy) item(span = { GridItemSpan(maxLineSpan) }) {
