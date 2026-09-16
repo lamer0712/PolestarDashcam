@@ -22,6 +22,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Semaphore
+import java.util.concurrent.ConcurrentHashMap
 
 data class CategoryPage(val entries: List<DvrMedia> = emptyList(), val next: Int = 0,
                         val hasMore: Boolean = true, val error: String? = null)
@@ -71,7 +72,8 @@ class ExportController(private val app: Application) {
     val appContext: Application get() = app
     private var stop = StopToken()
     private var pendingTransfer: (() -> String)? = null
-    private val thumbnailRequests = mutableSetOf<String>()
+    /** A tile may be composed more than once; only attempt each DVR thumbnail once per refresh. */
+    private val thumbnailAttempts = ConcurrentHashMap.newKeySet<String>()
     private var playbackBase: String? = null
     @Volatile private var playbackHeartbeatRunning = false
     private var playbackHeartbeat: Thread? = null
@@ -354,6 +356,7 @@ class ExportController(private val app: Application) {
     fun refresh() {
         if (!begin("Checking DVR connection")) return
         val config = state.value
+        thumbnailAttempts.clear()
         mutable.update { it.copy(connected = false, pages = emptyMap(), directories = emptyList()) }
         scope.launch { finishWork {
             val api = DvrApi(config.base)
@@ -401,7 +404,7 @@ class ExportController(private val app: Application) {
 
     fun ensureThumbnail(item: DvrMedia) {
         if (state.value.thumbnails.containsKey(item.key) || item.key in state.value.thumbnailFailures ||
-            !thumbnailRequests.add(item.key)) return
+            !thumbnailAttempts.add(item.key)) return
         scope.launch(Dispatchers.IO) {
             thumbnailSlots.acquire()
             try {
@@ -415,7 +418,6 @@ class ExportController(private val app: Application) {
                 mutable.update { it.copy(thumbnailFailures = it.thumbnailFailures + item.key) }
             } finally {
                 thumbnailSlots.release()
-                thumbnailRequests.remove(item.key)
             }
         }
     }
