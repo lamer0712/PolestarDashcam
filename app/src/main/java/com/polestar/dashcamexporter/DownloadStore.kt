@@ -167,10 +167,10 @@ class DownloadStore(private val root: File) {
         val partial = File(file.parentFile, "${file.name}.part")
         partial.delete()
         var expectedTotal = media.size
-        // The DVR commonly caps a direct response around 60 MiB. For larger
-        // files, let the first OEM-style stream run and switch to 32 MiB local
-        // chunks with open-ended Range only when that stream ends early.
-        var useRanges = expectedTotal in 1L..MAX_DIRECT_STREAM_BYTES
+        // The file size is known from filelist, so request the complete stream
+        // with one OEM-style open-ended Range. If the DVR cuts it off, the loop
+        // resumes from the received offset with another open-ended Range.
+        var useRanges = expectedTotal > 0L
         var directFallbackTried = false
         var rangeFallbackTried = false
         var galleryQueryFallbackTried = false
@@ -221,8 +221,7 @@ class DownloadStore(private val root: File) {
                                 throw IOException("List and downloaded file sizes differ. Refresh and try again.")
                             expectedTotal = range.total
                         }
-                        val available = range.last - range.first + 1
-                        minOf(available, RANGE_CHUNK_BYTES)
+                        range.last - range.first + 1
                     } else {
                         if (media.size > 0 && length > 0 && length != media.size)
                             throw IOException("List and downloaded file sizes differ. Refresh and try again.")
@@ -326,7 +325,6 @@ class DownloadStore(private val root: File) {
         error.message?.contains("HTTP 403", ignoreCase = true) == true
 
     companion object {
-        private const val RANGE_CHUNK_BYTES = 32L * 1024 * 1024
         private const val MAX_DIRECT_STREAM_BYTES = 60L * 1024 * 1024
         private const val MAX_STALLED_RETRIES = 4
         private const val MAX_CONNECTIONS = 512
