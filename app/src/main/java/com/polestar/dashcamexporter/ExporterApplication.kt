@@ -393,7 +393,9 @@ class ExportController(private val app: Application) {
             val combined = (previous.entries + batch).distinctBy { it.key }
             if (batch.isNotEmpty() && previous.entries.isNotEmpty() && combined.size == previous.entries.size)
                 throw IOException("The DVR returned the same page repeatedly. Refresh the list.")
-            val page = CategoryPage(combined, previous.next + batch.size, batch.isNotEmpty())
+            val loaded = combined.size
+            val hasMore = batch.isNotEmpty() && (directory.count <= 0 || loaded < directory.count)
+            val page = CategoryPage(combined, previous.next + batch.size, hasMore)
             mutable.update { it.copy(pages = it.pages + (directory.kind to page)) }
         } catch (e: UserCancelledException) { throw e }
         catch (e: Exception) {

@@ -494,13 +494,18 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                        onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (DvrMedia) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit, onThumbnail: (DvrMedia) -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
+    val knownCount = if (!local && kind != null) {
+        state.directories.firstOrNull { it.kind == kind }?.count ?: -1
+    } else -1
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
-    LaunchedEffect(gridState, page?.hasMore, page?.error, state.busy, remote.size) {
+    LaunchedEffect(gridState, page?.hasMore, page?.error, state.busy, remote.size, knownCount) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .distinctUntilChanged()
             .collectLatest { lastVisible ->
                 val total = gridState.layoutInfo.totalItemsCount
-                if (!local && page != null && page.hasMore && lastVisible >= total - 4 && !state.busy) onMore()
+                val needsMore = knownCount < 0 || remote.size < knownCount
+                if (!local && page != null && page.hasMore && needsMore &&
+                    lastVisible >= total - 4 && !state.busy) onMore()
             }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 27.dp, vertical = 21.dp)) {
