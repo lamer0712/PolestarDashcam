@@ -208,7 +208,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var savedOpen by rememberSaveable { mutableStateOf(false) }
     var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    var previewKey by rememberSaveable { mutableStateOf<String?>(null) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
     var fullScreenPhoto by remember { mutableStateOf<SavedMedia?>(null) }
     var fullScreenRemote by remember { mutableStateOf<DvrMedia?>(null) }
@@ -237,7 +236,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         savedOpen = false
         editMode = false
         selected = emptyList()
-        previewKey = null
     }
     fun openAlbum(kind: MediaKind) {
         controller.enterDvrBrowsingMode()
@@ -245,7 +243,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         savedOpen = false
         editMode = false
         selected = emptyList()
-        previewKey = null
     }
 
     Scaffold(containerColor = Color(0xFF121212), bottomBar = {
@@ -314,7 +311,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 editMode = editMode,
                 busy = state.busy,
                 onBack = ::leaveDetail,
-                onEdit = { editMode = !editMode; selected = emptyList(); previewKey = null },
+                onEdit = { editMode = !editMode; selected = emptyList() },
                 onChooseFolder = onChooseFolder
             )
             Row(Modifier.fillMaxSize()) {
@@ -327,7 +324,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     savedOpen = true
                     editMode = false
                     selected = emptyList()
-                    previewKey = null
                 })
                 if (inDetail) {
                     DetailGrid(
@@ -338,9 +334,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         remote = remote,
                         selection = selection,
                         editMode = editMode,
-                        previewKey = previewKey,
                         onToggle = ::toggle,
-                        onLongPress = { key -> editMode = true; previewKey = null; if (key !in selection) selected = ArrayList(selected + key) },
+                        onLongPress = { key -> editMode = true; if (key !in selection) selected = ArrayList(selected + key) },
                         onPreview = { item ->
                             controller.enterPlaybackMode { fullScreenRemote = item }
                         },
@@ -485,7 +480,7 @@ private fun AlbumCard(kind: MediaKind, count: Int, cover: String?, modifier: Mod
 
 @Composable
 private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, page: CategoryPage?,
-                       remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean, previewKey: String?,
+                       remote: List<DvrMedia>, selection: Set<String>, editMode: Boolean,
                        onToggle: (String) -> Unit, onLongPress: (String) -> Unit, onPreview: (DvrMedia) -> Unit, onOpen: (SavedMedia) -> Unit, onMore: () -> Unit,
                        onSelectAll: () -> Unit, onThumbnail: (DvrMedia) -> Unit) {
     val keys = if (local) state.saved.map { it.key } else remote.map { it.key }
@@ -536,7 +531,7 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
                     gridItems(items, key = { it.key }) { item ->
                         LaunchedEffect(item.key) { onThumbnail(item) }
                         DvrTile(item, state.thumbnails[item.key], selected = item.key in selection,
-                            playing = previewKey == item.key, editMode = editMode,
+                            editMode = editMode,
                             onToggle = { onToggle(item.key) }, onLongPress = { onLongPress(item.key) }, onPreview = { onPreview(item) })
                     }
                 }
@@ -558,12 +553,12 @@ private fun DetailGrid(kind: MediaKind?, local: Boolean, state: ExportState, pag
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, playing: Boolean, editMode: Boolean,
+private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, editMode: Boolean,
                     onToggle: () -> Unit, onLongPress: () -> Unit, onPreview: () -> Unit) {
     val canPreview = item.kind != MediaKind.PHOTO
     Column(Modifier.combinedClickable(onClick = { if (editMode || !canPreview) onToggle() else onPreview() }, onLongClick = onLongPress)) {
-        SelectableThumbnail(path = thumbnailPath, selected = selected, playing = playing, videoUrl = if (playing) item.url else null) {
-            if (!editMode && canPreview && !playing) Surface(
+        SelectableThumbnail(path = thumbnailPath, selected = selected) {
+            if (!editMode && canPreview) Surface(
                 color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
                 modifier = Modifier.align(Alignment.Center).size(56.dp)
             ) { Box(contentAlignment = Alignment.Center) { Text("▶", color = Color.White, fontSize = 28.sp) } }
@@ -600,7 +595,7 @@ private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, on
 }
 
 @Composable
-private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boolean = false, videoUrl: String? = null,
+private fun SelectableThumbnail(path: String?, selected: Boolean,
                                 thumbnail: androidx.compose.ui.graphics.ImageBitmap? = null,
                                 overlay: @Composable BoxScope.() -> Unit = {}) {
     Surface(
@@ -610,15 +605,9 @@ private fun SelectableThumbnail(path: String?, selected: Boolean, playing: Boole
         modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
     ) {
         Box {
-            if (videoUrl != null) InlineVideo(url = videoUrl)
-            else if (thumbnail != null) Image(thumbnail, contentDescription = "Thumbnail", contentScale = ContentScale.Crop,
+            if (thumbnail != null) Image(thumbnail, contentDescription = "Thumbnail", contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize())
             else Thumbnail(path = path, width = 248.dp, height = 140.dp, radius = 0.dp, fillFrame = true)
-            if (playing) {
-                Surface(color = Color(0xCC000000), modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)) {
-                    Text("Playing", color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
-                }
-            }
             if (selected) Box(Modifier.matchParentSize().background(Color(0x33000000)))
             overlay()
         }
@@ -641,92 +630,6 @@ private fun savedThumbnail(context: android.content.Context, item: SavedMedia): 
             retriever.getFrameAtTime(1_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
         }
     } catch (_: Exception) { null }
-}
-
-@androidx.annotation.OptIn(UnstableApi::class)
-@Composable
-private fun InlineVideo(url: String) {
-    val context = LocalContext.current
-    var failureText by remember(url) { mutableStateOf<String?>(null) }
-    var ready by remember(url) { mutableStateOf(false) }
-    val player = remember(url) {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setConnectTimeoutMs(60_000)
-            .setReadTimeoutMs(60_000)
-            // Match the OEM player's first request: a direct GET with no synthetic
-            // Range or custom User-Agent. It adds Range only when seeking/resuming.
-        val dataSourceFactory = PlaybackCache.factory(context, httpDataSourceFactory)
-        val trackSelector = DefaultTrackSelector(context).apply {
-            setParameters(buildUponParameters().setRendererDisabled(C.TRACK_TYPE_AUDIO, true))
-        }
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .setTrackSelector(trackSelector)
-            .build().apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            playWhenReady = true
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    ready = playbackState == Player.STATE_READY
-                }
-
-                override fun onPlayerError(error: PlaybackException) {
-                    val response = generatePlaybackError(error)
-                    failureText = "${error.errorCodeName}: $response"
-                }
-            })
-            prepare()
-        }
-    }
-    DisposableEffect(player) {
-        onDispose { player.release() }
-    }
-    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-        AndroidView(
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                    this.player = player
-                }
-            },
-            update = { view ->
-                if (view.player !== player) view.player = player
-                if (!player.isPlaying && failureText == null) player.play()
-            },
-            modifier = Modifier.matchParentSize()
-        )
-        if (!ready && failureText == null) {
-            Box(Modifier.matchParentSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFFF7A00), strokeWidth = 2.dp, modifier = Modifier.size(34.dp))
-            }
-        }
-        failureText?.let { message ->
-            Box(Modifier.matchParentSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
-            Text("Playback failed\n$message", color = Color.White, fontSize = 11.sp, lineHeight = 14.sp)
-            }
-        }
-    }
-}
-
-@androidx.annotation.OptIn(UnstableApi::class)
-private fun generatePlaybackError(error: PlaybackException): String {
-    var cause: Throwable? = error.cause
-    while (cause != null) {
-        if (cause is HttpDataSource.InvalidResponseCodeException) {
-            val body = cause.headerFields?.values?.flatten()?.firstOrNull { it.isNotBlank() }.orEmpty()
-            return "HTTP ${cause.responseCode}${if (body.isBlank()) "" else " · $body"}"
-        }
-        cause = cause.cause
-    }
-    return error.cause?.message ?: "Unable to read DVR response."
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
