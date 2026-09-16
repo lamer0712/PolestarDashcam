@@ -21,6 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.Semaphore
 
 data class CategoryPage(val entries: List<DvrMedia> = emptyList(), val next: Int = 0,
                         val hasMore: Boolean = true, val error: String? = null)
@@ -73,6 +74,8 @@ class ExportController(private val app: Application) {
     private var playbackBase: String? = null
     @Volatile private var playbackHeartbeatRunning = false
     private var playbackHeartbeat: Thread? = null
+    /** Limit thumbnail traffic so a long list does not open one DVR request per tile. */
+    private val thumbnailSlots = Semaphore(20, true)
 
     init {
         scope.launch {
@@ -87,6 +90,9 @@ class ExportController(private val app: Application) {
             if (!state.value.connected && state.value.recoveryBase == null) refresh()
         }
     }
+
+    /** Keep the DVR in file-list mode for the lifetime of the Gallery+ session. */
+    fun startAppHeartbeat() = enterDvrBrowsingMode()
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
 
@@ -211,6 +217,11 @@ class ExportController(private val app: Application) {
         scope.launch(Dispatchers.IO) {
             runCatching { DvrApi(base).setMode("normal") }
         }
+    }
+
+    /** Stop the app-level heartbeat when the activity is no longer in use. */
+    fun stopAppHeartbeat() {
+        if (!state.value.busy) exitPlaybackMode()
     }
 
     private fun startPlaybackHeartbeat(api: DvrApi) {
@@ -390,12 +401,16 @@ class ExportController(private val app: Application) {
     fun ensureThumbnail(item: DvrMedia) {
         if (state.value.thumbnails.containsKey(item.key) || !thumbnailRequests.add(item.key)) return
         scope.launch(Dispatchers.IO) {
+            thumbnailSlots.acquire()
             try {
                 val file = thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())
                 if (file != null) mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
             } catch (_: Exception) {
                 // Thumbnails are optional; leave the placeholder for failed items.
-            } finally { thumbnailRequests.remove(item.key) }
+            } finally {
+                thumbnailSlots.release()
+                thumbnailRequests.remove(item.key)
+            }
         }
     }
 

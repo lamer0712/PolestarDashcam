@@ -135,6 +135,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         controller.autoConnect()
+        controller.startAppHeartbeat()
+    }
+
+    override fun onStop() {
+        controller.stopAppHeartbeat()
+        super.onStop()
     }
 
     private fun requestNotifications() {
