@@ -33,6 +33,7 @@ data class ExportState(
     val directories: List<MediaDirectory> = emptyList(),
     val pages: Map<MediaKind, CategoryPage> = emptyMap(),
     val thumbnails: Map<String, String> = emptyMap(),
+    val thumbnailFailures: Set<String> = emptySet(),
     val saved: List<SavedMedia> = emptyList(),
     val busy: Boolean = false,
     val progressText: String = "",
@@ -399,14 +400,19 @@ class ExportController(private val app: Application) {
     }
 
     fun ensureThumbnail(item: DvrMedia) {
-        if (state.value.thumbnails.containsKey(item.key) || !thumbnailRequests.add(item.key)) return
+        if (state.value.thumbnails.containsKey(item.key) || item.key in state.value.thumbnailFailures ||
+            !thumbnailRequests.add(item.key)) return
         scope.launch(Dispatchers.IO) {
             thumbnailSlots.acquire()
             try {
                 val file = thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())
-                if (file != null) mutable.update { it.copy(thumbnails = it.thumbnails + (item.key to file.absolutePath)) }
+                if (file != null) mutable.update { it.copy(
+                    thumbnails = it.thumbnails + (item.key to file.absolutePath),
+                    thumbnailFailures = it.thumbnailFailures - item.key
+                ) } else mutable.update { it.copy(thumbnailFailures = it.thumbnailFailures + item.key) }
             } catch (_: Exception) {
                 // Thumbnails are optional; leave the placeholder for failed items.
+                mutable.update { it.copy(thumbnailFailures = it.thumbnailFailures + item.key) }
             } finally {
                 thumbnailSlots.release()
                 thumbnailRequests.remove(item.key)

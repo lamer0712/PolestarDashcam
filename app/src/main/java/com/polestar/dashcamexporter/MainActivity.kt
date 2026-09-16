@@ -237,7 +237,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         selected = ArrayList(if (key in current) current - key else current + key)
     }
     fun leaveDetail() {
-        controller.exitPlaybackMode()
         album = null
         savedOpen = false
         editMode = false
@@ -325,7 +324,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                     leaveDetail()
                     controller.refresh()
                 }, onSaved = {
-                    controller.exitPlaybackMode()
                     album = null
                     savedOpen = true
                     editMode = false
@@ -365,7 +363,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         FullScreenPhoto(file = file, onDismiss = { fullScreenPhoto = null })
     }
     fullScreenRemote?.let { item ->
-        FullScreenRemoteVideo(item = item, onDismiss = { fullScreenRemote = null; controller.exitPlaybackMode() })
+        FullScreenRemoteVideo(item = item, onDismiss = { fullScreenRemote = null })
     }
 }
 
