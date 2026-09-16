@@ -9,10 +9,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.concurrent.atomic.AtomicLong
 
 data class SavedMedia(
     val file: File?,
@@ -156,88 +152,12 @@ class DownloadStore(private val root: File) {
         return File(directory, name)
     }
 
-    fun download(media: DvrMedia, stop: StopToken, progress: (Long, Long) -> Unit): SavedMedia {
-        if (media.size > RANGE_CHUNK_BYTES * 2) {
-            try { return downloadParallel(media, stop, progress) }
-            catch (e: UserCancelledException) { throw e }
-            catch (_: Exception) {
-                // Firmware may reject concurrent or bounded ranges. Fall back to the
-                // proven sequential open-ended strategy while the same DVR session lives.
-            }
-        }
-        return downloadSequential(media, stop, progress)
-    }
-
-    private fun downloadParallel(media: DvrMedia, stop: StopToken, progress: (Long, Long) -> Unit): SavedMedia {
-        stop.check()
-        val file = target(media)
-        if (file.isFile && file.length() == media.size) return SavedMedia(file, media.kind)
-        val partsDir = File(file.parentFile, ".${file.name}.parts").apply { mkdirs() }
-        val ranges = (0 until ((media.size + RANGE_CHUNK_BYTES - 1) / RANGE_CHUNK_BYTES).toInt()).map { index ->
-            val first = index * RANGE_CHUNK_BYTES
-            Triple(index, first, minOf(media.size - 1, first + RANGE_CHUNK_BYTES - 1))
-        }
-        val pool = Executors.newFixedThreadPool(PARALLEL_CONNECTIONS)
-        val futures = mutableListOf<Future<Long>>()
-        val completedBytes = AtomicLong(0L)
-        try {
-            ranges.forEach { (index, first, last) ->
-                futures += pool.submit(Callable {
-                    val part = File(partsDir, "%04d.part".format(index))
-                    part.delete()
-                    val connection = DvrApi.connection(media.url).apply {
-                        setRequestProperty("Range", "bytes=$first-$last")
-                        setRequestProperty("Accept-Encoding", "identity")
-                    }
-                    try {
-                        if (connection.responseCode != HttpURLConnection.HTTP_PARTIAL) DvrApi.requireOk(connection)
-                        val range = parseContentRange(connection.getHeaderField("Content-Range"))
-                            ?: throw IOException("The DVR returned no valid Content-Range header.")
-                        if (range.first != first || range.last != last || (range.total > 0 && range.total != media.size))
-                            throw IOException("The DVR returned an unexpected range: ${range.first}-${range.last}.")
-                        val length = last - first + 1
-                        var reported = 0L
-                        connection.inputStream.use { input -> FileOutputStream(part).use { output ->
-                            StreamCopy.copyChunk(input, output, length, stop) { done, _ ->
-                                completedBytes.addAndGet(done - reported)
-                                reported = done
-                                progress(completedBytes.get(), media.size)
-                            }
-                            output.fd.sync()
-                        } }
-                        if (part.length() != length) throw IOException("Range part is incomplete: $first-$last")
-                        length
-                    } finally { connection.disconnect() }
-                })
-            }
-            futures.forEach {
-                try { it.get() }
-                catch (e: java.util.concurrent.ExecutionException) {
-                    val cause = e.cause
-                    if (cause is UserCancelledException) throw cause
-                    if (cause is Exception) throw cause
-                    throw IOException("Parallel download failed", cause)
-                }
-            }
-            stop.check()
-            val partial = File(file.parentFile, "${file.name}.part")
-            partial.delete()
-            FileOutputStream(partial).use { output ->
-                ranges.forEach { (index, first, last) ->
-                    stop.check()
-                    File(partsDir, "%04d.part".format(index)).inputStream().use { input -> input.copyTo(output) }
-                    progress(last + 1, media.size)
-                }
-                output.fd.sync()
-            }
-            if (partial.length() != media.size) throw IOException("Parallel download is incomplete.")
-            if (!partial.renameTo(file)) throw IOException("Unable to save completed file.")
-            return SavedMedia(file, media.kind)
-        } finally {
-            pool.shutdownNow()
-            partsDir.deleteRecursively()
-        }
-    }
+    /** Uses one DVR stream at a time, matching the OEM Gallery proxy path.
+     * If the stream ends early, downloadSequential resumes with an open-ended
+     * Range from the bytes already received.
+     */
+    fun download(media: DvrMedia, stop: StopToken, progress: (Long, Long) -> Unit): SavedMedia =
+        downloadSequential(media, stop, progress)
 
     private fun downloadSequential(media: DvrMedia, stop: StopToken, progress: (Long, Long) -> Unit): SavedMedia {
         stop.check()
@@ -407,7 +327,6 @@ class DownloadStore(private val root: File) {
 
     companion object {
         private const val RANGE_CHUNK_BYTES = 32L * 1024 * 1024
-        private const val PARALLEL_CONNECTIONS = 4
         private const val MAX_DIRECT_STREAM_BYTES = 60L * 1024 * 1024
         private const val MAX_STALLED_RETRIES = 4
         private const val MAX_CONNECTIONS = 512

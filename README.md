@@ -1,3 +1,4 @@
+- 0.4.70: 대용량 다운로드의 4개 병렬 bounded Range 요청을 제거하고, OEM처럼 한 스트림을 사용한 뒤 끊긴 위치에서 open-ended Range로 순차 재개합니다.
 - 0.4.69: 화면 전환 때 heartbeat가 normal/file-list를 반복 전환하지 않도록 앱 생명주기에서 하나의 heartbeat만 유지합니다. 실패한 썸네일은 실패 캐시로 기록해 같은 파일을 반복 요청하지 않습니다.
 - 0.4.68: 앱 화면이 사용 중인 동안 DVR 파일 목록 모드 heartbeat를 유지하고, 썸네일 요청을 최대 20개씩 처리합니다.
 - 0.4.67: OEM 갤러리처럼 카드에서는 정지 썸네일만 표시하고, 카드를 누르면 전체화면 플레이어에서 재생합니다. 인라인 카드 재생 상태를 제거했습니다.
@@ -71,7 +72,7 @@ USB 저장은 Android Storage Access Framework를 사용합니다. AAOS 제조�
 - 카드와 전체화면 재생 흐름, DVR URL 구성, 파일 목록 모드 및 5초 heartbeat는 OEM 갤러리 동작을 기준으로 구현했습니다.
 - 재생 엔진은 OEM의 `GalleryVideoView`/IJK 래퍼가 아니라 AndroidX Media3 ExoPlayer입니다. 따라서 플레이어 내부의 코덱·버퍼링·오류 재시도 동작은 완전히 같다고 보장할 수 없습니다.
 - OEM은 DVR의 `copyToTfCard` 같은 내부 복사 API를 사용할 수 있지만, Gallery+는 일반 앱 권한으로 HTTP 다운로드 후 SAF 폴더 또는 연결된 USB 폴더에 복사합니다.
-- 현재 대용량 다운로드는 4개 병렬 Range 연결을 먼저 시도하고 실패하면 순차 방식으로 전환합니다. 차량 펌웨어가 bounded Range를 거부하면 403이 발생할 수 있어 실차 검증이 필요합니다.
+- 대용량 다운로드는 OEM처럼 한 스트림을 사용합니다. 스트림이 끊기면 현재 위치부터 open-ended Range(`bytes=offset-`)로 순차 재개합니다. 차량 펌웨어의 세션 만료·응답 제한은 실차 검증이 필요합니다.
 - OEM은 system UID와 차량 전용 권한을 사용합니다. Gallery+는 일반 앱이므로 차량 정책과 DVR 접근 권한에 따라 일부 동작이 제한될 수 있습니다.
 
 ## 빌드 / 설치
