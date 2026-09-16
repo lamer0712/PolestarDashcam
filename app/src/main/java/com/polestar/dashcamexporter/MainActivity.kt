@@ -143,11 +143,6 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) controller.startAppHeartbeat() else controller.stopAppHeartbeat()
-    }
-
     private fun requestNotifications() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -353,7 +348,13 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                         },
                         onMore = { currentAlbum?.let(controller::more) },
                         onSelectAll = { selected = if (selection.size == keys.size) emptyList() else ArrayList(keys) },
-                        onThumbnail = controller::ensureThumbnail
+                        onThumbnail = { item ->
+                            // Keep thumbnail traffic focused on the visible album;
+                            // a fullscreen player must not start new thumbnail work.
+                            if (fullScreenRemote == null && fullScreenSaved == null && fullScreenPhoto == null) {
+                                controller.ensureThumbnail(item)
+                            }
+                        }
                     )
                 } else {
                     AlbumHome(state = state, onAlbum = ::openAlbum)
