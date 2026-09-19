@@ -8,6 +8,7 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -18,7 +19,9 @@ class PhoneFileServer(
     private val files: () -> List<SavedMedia>,
     private val open: (SavedMedia) -> InputStream,
     private val dvrFiles: () -> List<DvrMedia> = { emptyList() },
-    private val openDvr: (DvrMedia, Long) -> InputStream = { _, _ -> throw IllegalStateException("DVR relay is unavailable.") }
+    private val openDvr: (DvrMedia, Long) -> InputStream = { _, _ -> throw IllegalStateException("DVR relay is unavailable.") },
+    private val savedThumbnail: (SavedMedia) -> ByteArray? = { null },
+    private val dvrThumbnail: (DvrMedia) -> ByteArray? = { null }
 ) {
     companion object { const val PORT = 8787 }
     private val executor = Executors.newFixedThreadPool(4)
@@ -53,6 +56,7 @@ class PhoneFileServer(
 
     private fun handle(socket: Socket) {
         socket.use { client ->
+            try {
             client.soTimeout = 15_000
             val reader = BufferedReader(InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8))
             val request = reader.readLine() ?: return
@@ -81,29 +85,81 @@ class PhoneFileServer(
                 if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
                 return downloadDvr(client, dvrSnapshot[index], range)
             }
+            if (target.substringBefore('?') == "/saved-thumb") {
+                val index = query["i"]?.toIntOrNull()
+                if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
+                return image(client, savedThumbnail(snapshot[index]))
+            }
+            if (target.substringBefore('?') == "/dvr-thumb") {
+                val index = query["i"]?.toIntOrNull()
+                if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
+                return image(client, dvrThumbnail(dvrSnapshot[index]))
+            }
             response(client, 404, "Not Found", "Not found.")
+            } catch (_: SocketTimeoutException) {
+                // A browser or port scanner may connect without sending a full request.
+            } catch (error: Exception) {
+                runCatching { response(client, 500, "Internal Server Error", error.message ?: "Request failed.") }
+            }
         }
     }
 
     private fun listing(socket: Socket) {
         snapshot = files()
-        dvrSnapshot = dvrFiles()
-        val rows = snapshot.mapIndexed { index, item ->
-            val name = escape(item.name)
-            "<li><a href=\"/download?i=$index\">$name</a> <small>${item.size / 1024} KB · ${escape(item.mime)}</small></li>"
-        }.joinToString("\n")
-        val dvrRows = dvrSnapshot.mapIndexed { index, item ->
-            "<li><a href=\"/dvr-download?i=$index\">${escape(item.name)}</a> <small>${item.size / 1024} KB · ${escape(mimeFor(item.name, item.kind))}</small></li>"
-        }.joinToString("\n")
+        val dvrError = runCatching { dvrSnapshot = dvrFiles() }.exceptionOrNull()
+        fun savedCard(item: SavedMedia, index: Int): String {
+            val media = escape(item.mime)
+            val url = "/download?i=$index"
+            val thumb = "/saved-thumb?i=$index"
+            return card(item.name, item.size, media, thumb, url)
+        }
+        fun dvrCard(item: DvrMedia, index: Int): String {
+            val media = escape(mimeFor(item.name, item.kind))
+            val url = "/dvr-download?i=$index"
+            val thumb = "/dvr-thumb?i=$index"
+            return card(item.name, item.size, media, thumb, url)
+        }
+        val savedCards = snapshot.mapIndexed { index, item -> savedCard(item, index) }.joinToString("\n")
+        val dvrCards = dvrSnapshot.mapIndexed { index, item -> dvrCard(item, index) }.joinToString("\n")
         val html = """
-            <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
-            <title>Gallery+ Saved</title><h2>Gallery+ Saved</h2>
-            <p>Select a saved file to download.</p><ul>$rows</ul>
-            <h2>DVR files currently loaded in Gallery+</h2><ul>$dvrRows</ul>
+            <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Gallery+</title><style>
+            :root{color-scheme:dark;--bg:#121212;--panel:#1b1b1b;--line:#343434;--muted:#aeb4b9;--orange:#ff7a00}
+            *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Arial,sans-serif}
+            header{height:76px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 28px;gap:18px;position:sticky;top:0;background:var(--bg);z-index:2}
+            header .logo{font-size:29px;color:var(--orange);font-weight:700}header h1{font-size:26px;margin:0;font-weight:500}
+            .layout{display:flex;min-height:calc(100vh - 77px)}aside{width:190px;background:#181818;padding-top:28px;flex:none}
+            aside a{display:block;color:#b8b8b8;text-decoration:none;font-size:19px;padding:20px 24px}aside a.active{color:var(--orange);background:#242424}
+            main{padding:28px;flex:1;max-width:1500px}.section{margin-bottom:42px}.section h2{font-size:23px;font-weight:500;margin:0 0 18px}
+            .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+            .thumb{width:100%;aspect-ratio:16/9;background:#252525;object-fit:cover;display:block;cursor:pointer}.body{padding:12px}.name{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{color:var(--muted);font-size:13px;margin-top:7px;display:flex;justify-content:space-between;gap:8px}.download{display:inline-block;margin-top:11px;color:var(--orange);text-decoration:none;font-size:14px}
+            dialog{background:#181818;color:#fff;border:1px solid var(--line);border-radius:8px;max-width:90vw}dialog::backdrop{background:#000b}dialog video{max-width:82vw;max-height:75vh}button{background:var(--orange);border:0;padding:8px 14px;border-radius:4px}
+            .empty{color:var(--muted);padding:20px 0}@media(max-width:700px){aside{width:120px}aside a{font-size:15px;padding:18px 12px}main{padding:16px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+            </style></head><body><header><span class="logo">Gallery+</span><h1>Saved & DVR</h1></header>
+            <div class="layout"><aside><a class="active" href="#saved">▣<br>Saved</a><a href="#dvr">▤<br>DVR</a></aside><main>
+            <section class="section" id="saved"><h2>Saved <small>(${snapshot.size})</small></h2><div class="grid">${savedCards.ifBlank { "<div class=empty>No saved files</div>" }}</div></section>
+            <section class="section" id="dvr"><h2>DVR <small>(${dvrSnapshot.size})</small></h2>${if (dvrError != null) "<p class=empty>DVR is unavailable: ${escape(dvrError.message ?: "No response")}</p>" else "<div class=grid>${dvrCards.ifBlank { "<div class=empty>No DVR files found</div>" }}</div>"}</section>
+            </main></div><dialog id="player"><video id="video" controls playsinline></video><br><button onclick="player.close();video.pause()">Close</button></dialog>
+            <script>const player=document.getElementById('player'),video=document.getElementById('video');function play(url){video.src=url;player.showModal();video.play().catch(()=>{})}</script></body></html>
         """.trimIndent()
         val bytes = html.toByteArray(StandardCharsets.UTF_8)
         val out = socket.getOutputStream()
         writeHeaders(out, 200, "OK", "text/html; charset=utf-8", bytes.size.toLong())
+        out.write(bytes); out.flush()
+    }
+
+    private fun card(name: String, size: Long, mime: String, thumb: String, url: String): String {
+        val safeName = escape(name)
+        val sizeText = if (size >= 1024 * 1024) "%.1f MB".format(size / 1024f / 1024f) else "%.0f KB".format(size / 1024f)
+        val visual = if (mime.startsWith("video/")) "<img class=thumb src=\"$thumb\" loading=\"lazy\" onerror=\"this.style.display='none'\" onclick=\"play('$url')\">"
+        else "<img class=thumb src=\"$thumb\" loading=\"lazy\" onclick=\"window.open('$url','_blank')\">"
+        return "<article class=card>$visual<div class=body><div class=name title=\"$safeName\">$safeName</div><div class=meta><span>$sizeText</span><span>$mime</span></div><a class=download download href=\"$url\">Download</a></div></article>"
+    }
+
+    private fun image(socket: Socket, bytes: ByteArray?) {
+        if (bytes == null || bytes.isEmpty()) return response(socket, 404, "Not Found", "Thumbnail unavailable.")
+        val out = socket.getOutputStream()
+        writeHeaders(out, 200, "OK", "image/jpeg", bytes.size.toLong())
         out.write(bytes); out.flush()
     }
 

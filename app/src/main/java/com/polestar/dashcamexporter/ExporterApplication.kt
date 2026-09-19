@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.os.storage.StorageManager
+import android.media.MediaMetadataRetriever
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Semaphore
 import java.util.concurrent.ConcurrentHashMap
@@ -80,11 +82,12 @@ class ExportController(private val app: Application) {
     private var playbackHeartbeat: Thread? = null
     /** Limit thumbnail traffic so a long list does not open one DVR request per tile. */
     private val thumbnailSlots = Semaphore(20, true)
+    private val phoneDvrLock = Any()
     private val phoneServer = PhoneFileServer(
         files = { state.value.saved },
         open = ::openSavedInput,
         dvrFiles = {
-            state.value.pages.values.flatMap { it.entries }.distinctBy { it.key }
+            loadDvrForPhone()
         },
         openDvr = { item, _ ->
             val connection = DvrApi.connection(item.url)
@@ -92,7 +95,9 @@ class ExportController(private val app: Application) {
             // This avoids relying on vehicle-specific Range behavior.
             if (connection.responseCode != 200) DvrApi.requireOk(connection)
             connection.inputStream
-        }
+        },
+        savedThumbnail = ::savedThumbnailForPhone,
+        dvrThumbnail = { item -> runCatching { DvrApi(state.value.base).thumbnail(item) }.getOrNull() }
     )
 
     init {
@@ -131,6 +136,45 @@ class ExportController(private val app: Application) {
         phoneServer.stop()
         mutable.update { it.copy(phoneServerUrl = null) }
     }
+
+    /** Loads DVR pages for the phone web UI independently of the in-car Compose list. */
+    private fun loadDvrForPhone(): List<DvrMedia> = synchronized(phoneDvrLock) {
+        val api = DvrApi(state.value.base)
+        val status = api.status()
+        if (!status.usable) throw IOException("DVR storage is unavailable.")
+        if (status.recording != "in-file-list") api.setMode("enter-file-list")
+        api.directories().flatMap { directory ->
+            val all = mutableListOf<DvrMedia>()
+            var start = 0
+            var guard = 0
+            do {
+                val batch = api.files(directory, start)
+                all += batch
+                start += batch.size
+                guard++
+            } while (batch.isNotEmpty() && (directory.count <= 0 || all.size < directory.count) && guard < 100)
+            all
+        }
+    }
+
+    private fun savedThumbnailForPhone(item: SavedMedia): ByteArray? = runCatching {
+        if (item.mime.startsWith("image/")) {
+            openSavedInput(item).use { input -> input.readBytes().take(5 * 1024 * 1024).toByteArray() }
+        } else {
+            val retriever = MediaMetadataRetriever()
+            try {
+                if (item.file != null) retriever.setDataSource(item.file.absolutePath)
+                else item.uri?.let { uri -> app.contentResolver.openFileDescriptor(uri, "r")?.use { retriever.setDataSource(it.fileDescriptor) } }
+                val bitmap = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: return@runCatching null
+                ByteArrayOutputStream().use { output ->
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, output)
+                    bitmap.recycle()
+                    output.toByteArray()
+                }
+            } finally { retriever.release() }
+        }
+    }.getOrNull()
 
     fun refreshUsbState() {
         val connected = app.getSystemService(StorageManager::class.java).storageVolumes.any {
