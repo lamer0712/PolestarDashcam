@@ -18,7 +18,7 @@ class PhoneFileServer(
     private val files: () -> List<SavedMedia>,
     private val open: (SavedMedia) -> InputStream,
     private val dvrFiles: () -> List<DvrMedia> = { emptyList() },
-    private val openDvr: (DvrMedia) -> InputStream = { throw IllegalStateException("DVR relay is unavailable.") }
+    private val openDvr: (DvrMedia, Long) -> InputStream = { _, _ -> throw IllegalStateException("DVR relay is unavailable.") }
 ) {
     private val executor = Executors.newFixedThreadPool(4)
     @Volatile private var socket: ServerSocket? = null
@@ -136,7 +136,7 @@ class PhoneFileServer(
         val out = socket.getOutputStream()
         writeHeaders(out, if (start > 0) 206 else 200, if (start > 0) "Partial Content" else "OK",
             mimeFor(item.name, item.kind), length, item.name, total, start)
-        openDvr(item).use { input ->
+        openDvr(item, start).use { input ->
             skipFully(input, start)
             val buffer = ByteArray(128 * 1024)
             var remaining = length

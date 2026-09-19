@@ -86,9 +86,11 @@ class ExportController(private val app: Application) {
         dvrFiles = {
             state.value.pages.values.flatMap { it.entries }.distinctBy { it.key }
         },
-        openDvr = { item ->
+        openDvr = { item, _ ->
             val connection = DvrApi.connection(item.url)
-            DvrApi.requireOk(connection)
+            // The DVR relay currently opens one sequential stream and skips locally.
+            // This avoids relying on vehicle-specific Range behavior.
+            if (connection.responseCode != 200) DvrApi.requireOk(connection)
             connection.inputStream
         }
     )
