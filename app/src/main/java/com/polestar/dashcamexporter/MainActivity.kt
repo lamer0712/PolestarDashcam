@@ -2,6 +2,7 @@ package com.polestar.dashcamexporter
 
 import android.Manifest
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -58,6 +60,8 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import androidx.media3.common.util.UnstableApi
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -127,7 +131,7 @@ class MainActivity : ComponentActivity() {
                                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         })
                     } catch (e: Exception) { controller.message("Unable to open folder picker: ${e.message}") }
-                })
+                }, onPhoneServer = controller::startPhoneServer)
             }
         }
     }
@@ -158,7 +162,7 @@ class MainActivity : ComponentActivity() {
 private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedia>) -> Unit,
                          onOpen: (SavedMedia) -> Unit, onShare: (List<SavedMedia>) -> Unit,
                          onFolder: (List<SavedMedia>) -> Unit, onUsb: (List<SavedMedia>) -> Unit,
-                         onChooseFolder: () -> Unit) {
+                         onChooseFolder: () -> Unit, onPhoneServer: () -> Unit) {
     val state by controller.state.collectAsState()
     var showInitialFolderPrompt by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { controller.autoConnect() }
@@ -175,6 +179,9 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
     LaunchedEffect(state.message) {
         if (state.message.isNotBlank()) Toast.makeText(controller.appContext, state.message, Toast.LENGTH_SHORT).show()
+    }
+    state.phoneServerUrl?.let { url ->
+        PhoneServerDialog(url = url, onDismiss = controller::stopPhoneServer)
     }
     state.errorMessage?.let { error ->
         AlertDialog(
@@ -273,6 +280,11 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 } else if (inDetail) {
                     Text("${selection.size} selected", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
+                        Button(onClick = onPhoneServer, enabled = state.saved.isNotEmpty() && !state.busy,
+                            modifier = Modifier.heightIn(min = 52.dp)) {
+                            Icon(Icons.Default.QrCode2, contentDescription = "Phone download")
+                            Spacer(Modifier.width(6.dp)); Text("Phone")
+                        }
                         Button(onClick = { onUsb(state.saved.filter { it.key in selection }) },
                             enabled = selection.isNotEmpty() && state.usbConnected && !state.busy,
                             modifier = Modifier.heightIn(min = 52.dp)) {
@@ -372,6 +384,37 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         FullScreenRemoteVideo(item = item, onDismiss = { fullScreenRemote = null })
     }
 }
+
+@Composable
+private fun PhoneServerDialog(url: String, onDismiss: () -> Unit) {
+    val qr = remember(url) { createQrBitmap(url, 720) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send to phone") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                qr?.let {
+                    Image(bitmap = it.asImageBitmap(), contentDescription = "Scan to download saved files",
+                        modifier = Modifier.size(280.dp), contentScale = ContentScale.FillBounds)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Connect your phone to the vehicle hotspot, then scan this QR code.", color = Color.White)
+                Spacer(Modifier.height(8.dp))
+                Text(url, color = Color(0xFFB8B8B8), fontSize = 12.sp)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Stop server") } }
+    )
+}
+
+private fun createQrBitmap(value: String, size: Int): Bitmap? = runCatching {
+    val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, size, size)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    for (y in 0 until size) for (x in 0 until size) {
+        bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+    }
+    bitmap
+}.getOrNull()
 
 @Composable
 private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,

@@ -43,7 +43,8 @@ data class ExportState(
     val errorMessage: String? = null,
     val recoveryBase: String? = null,
     val exportTree: Uri? = null,
-    val usbConnected: Boolean = false
+    val usbConnected: Boolean = false,
+    val phoneServerUrl: String? = null
 )
 
 class ExporterApplication : Application() {
@@ -79,6 +80,10 @@ class ExportController(private val app: Application) {
     private var playbackHeartbeat: Thread? = null
     /** Limit thumbnail traffic so a long list does not open one DVR request per tile. */
     private val thumbnailSlots = Semaphore(20, true)
+    private val phoneServer = PhoneFileServer(
+        files = { state.value.saved },
+        open = ::openSavedInput
+    )
 
     init {
         scope.launch {
@@ -98,6 +103,24 @@ class ExportController(private val app: Application) {
     fun startAppHeartbeat() = enterDvrBrowsingMode()
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
+
+    fun startPhoneServer() {
+        if (state.value.saved.isEmpty()) {
+            message("There are no saved files to send.")
+            return
+        }
+        try {
+            val url = phoneServer.start()
+            mutable.update { it.copy(phoneServerUrl = url, message = "Scan the QR code with your phone.") }
+        } catch (e: Exception) {
+            reportError("Unable to start phone file server: ${e.message ?: "No Wi-Fi connection."}")
+        }
+    }
+
+    fun stopPhoneServer() {
+        phoneServer.stop()
+        mutable.update { it.copy(phoneServerUrl = null) }
+    }
 
     fun refreshUsbState() {
         val connected = app.getSystemService(StorageManager::class.java).storageVolumes.any {
