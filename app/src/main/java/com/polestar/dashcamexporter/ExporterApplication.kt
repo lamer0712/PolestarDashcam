@@ -82,7 +82,15 @@ class ExportController(private val app: Application) {
     private val thumbnailSlots = Semaphore(20, true)
     private val phoneServer = PhoneFileServer(
         files = { state.value.saved },
-        open = ::openSavedInput
+        open = ::openSavedInput,
+        dvrFiles = {
+            state.value.pages.values.flatMap { it.entries }.distinctBy { it.key }
+        },
+        openDvr = { item ->
+            val connection = DvrApi.connection(item.url)
+            DvrApi.requireOk(connection)
+            connection.inputStream
+        }
     )
 
     init {
@@ -247,6 +255,7 @@ class ExportController(private val app: Application) {
 
     /** Stop the app-level heartbeat when the activity is no longer in use. */
     fun stopAppHeartbeat() {
+        if (state.value.phoneServerUrl != null) stopPhoneServer()
         if (!state.value.busy) exitPlaybackMode()
     }
 

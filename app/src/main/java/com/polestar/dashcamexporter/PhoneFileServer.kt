@@ -16,23 +16,29 @@ import java.util.concurrent.Executors
 /** Small read-only HTTP server for transferring saved media to a phone on the same hotspot. */
 class PhoneFileServer(
     private val files: () -> List<SavedMedia>,
-    private val open: (SavedMedia) -> InputStream
+    private val open: (SavedMedia) -> InputStream,
+    private val dvrFiles: () -> List<DvrMedia> = { emptyList() },
+    private val openDvr: (DvrMedia) -> InputStream = { throw IllegalStateException("DVR relay is unavailable.") }
 ) {
-    private val executor = Executors.newCachedThreadPool()
+    private val executor = Executors.newFixedThreadPool(4)
     @Volatile private var socket: ServerSocket? = null
     @Volatile private var snapshot: List<SavedMedia> = emptyList()
+    @Volatile private var dvrSnapshot: List<DvrMedia> = emptyList()
 
     fun start(): String {
         stop()
         snapshot = files()
         val server = ServerSocket(0)
         socket = server
-        executor.execute {
+        Thread({
             while (!server.isClosed) {
-                try { executor.execute { handle(server.accept()) } }
+                try {
+                    val client = server.accept()
+                    executor.execute { handle(client) }
+                }
                 catch (_: Exception) { if (!server.isClosed) continue }
             }
-        }
+        }, "phone-file-server-accept").also { it.isDaemon = true; it.start() }
         val address = localIpv4() ?: throw IllegalStateException("No Wi-Fi address is available.")
         return "http://$address:${server.localPort}/"
     }
@@ -41,6 +47,7 @@ class PhoneFileServer(
         runCatching { socket?.close() }
         socket = null
         snapshot = emptyList()
+        dvrSnapshot = emptyList()
     }
 
     private fun handle(socket: Socket) {
@@ -68,20 +75,30 @@ class PhoneFileServer(
                 if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
                 return download(client, snapshot[index], range)
             }
+            if (target.substringBefore('?') == "/dvr-download") {
+                val index = query["i"]?.toIntOrNull()
+                if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
+                return downloadDvr(client, dvrSnapshot[index], range)
+            }
             response(client, 404, "Not Found", "Not found.")
         }
     }
 
     private fun listing(socket: Socket) {
         snapshot = files()
+        dvrSnapshot = dvrFiles()
         val rows = snapshot.mapIndexed { index, item ->
             val name = escape(item.name)
             "<li><a href=\"/download?i=$index\">$name</a> <small>${item.size / 1024} KB · ${escape(item.mime)}</small></li>"
         }.joinToString("\n")
+        val dvrRows = dvrSnapshot.mapIndexed { index, item ->
+            "<li><a href=\"/dvr-download?i=$index\">${escape(item.name)}</a> <small>${item.size / 1024} KB · ${escape(mimeFor(item.name, item.kind))}</small></li>"
+        }.joinToString("\n")
         val html = """
             <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
             <title>Gallery+ Saved</title><h2>Gallery+ Saved</h2>
-            <p>Select a file to download.</p><ul>$rows</ul>
+            <p>Select a saved file to download.</p><ul>$rows</ul>
+            <h2>DVR files currently loaded in Gallery+</h2><ul>$dvrRows</ul>
         """.trimIndent()
         val bytes = html.toByteArray(StandardCharsets.UTF_8)
         val out = socket.getOutputStream()
@@ -111,6 +128,28 @@ class PhoneFileServer(
         out.flush()
     }
 
+    private fun downloadDvr(socket: Socket, item: DvrMedia, range: String?) {
+        val total = item.size
+        val start = range?.substringAfter("bytes=", "")?.substringBefore('-')?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+        if (start >= total && total > 0) return response(socket, 416, "Range Not Satisfiable", "Invalid range.")
+        val length = if (total > 0) total - start else -1L
+        val out = socket.getOutputStream()
+        writeHeaders(out, if (start > 0) 206 else 200, if (start > 0) "Partial Content" else "OK",
+            mimeFor(item.name, item.kind), length, item.name, total, start)
+        openDvr(item).use { input ->
+            skipFully(input, start)
+            val buffer = ByteArray(128 * 1024)
+            var remaining = length
+            while (remaining != 0L) {
+                val read = input.read(buffer, 0, if (remaining < 0) buffer.size else minOf(buffer.size.toLong(), remaining).toInt())
+                if (read < 0) break
+                out.write(buffer, 0, read)
+                if (remaining > 0) remaining -= read
+            }
+        }
+        out.flush()
+    }
+
     private fun response(socket: Socket, code: Int, status: String, message: String) {
         val bytes = "<h3>$status</h3><p>${escape(message)}</p>".toByteArray(StandardCharsets.UTF_8)
         val out = socket.getOutputStream()
@@ -123,7 +162,7 @@ class PhoneFileServer(
         val builder = StringBuilder("HTTP/1.1 $code $status\r\n")
             .append("Content-Type: $type\r\n")
         if (length >= 0) builder.append("Content-Length: $length\r\n")
-            .append("Cache-Control: no-store\r\n")
+        builder.append("Cache-Control: no-store\r\n")
         if (name != null) builder.append("Content-Disposition: attachment; filename*=UTF-8''${URLEncoder.encode(name, "UTF-8").replace("+", "%20")}\r\n")
         if (total > 0) builder.append("Accept-Ranges: bytes\r\nContent-Range: bytes $start-${start + length - 1}/$total\r\n")
         builder.append("Connection: close\r\n\r\n")

@@ -394,7 +394,7 @@ private fun PhoneServerDialog(url: String, onDismiss: () -> Unit) {
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 qr?.let {
-                    Image(bitmap = it.asImageBitmap(), contentDescription = "Scan to download saved files",
+                    Image(bitmap = it.asImageBitmap(), contentDescription = "Scan to download Gallery+ files",
                         modifier = Modifier.size(280.dp), contentScale = ContentScale.FillBounds)
                 }
                 Spacer(Modifier.height(12.dp))
