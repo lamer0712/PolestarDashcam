@@ -97,7 +97,11 @@ class ExportController(private val app: Application) {
             connection.inputStream
         },
         savedThumbnail = ::savedThumbnailForPhone,
-        dvrThumbnail = { item -> runCatching { DvrApi(state.value.base).thumbnail(item) }.getOrNull() }
+        dvrThumbnail = { item ->
+            runCatching {
+                thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())?.readBytes()
+            }.getOrNull()
+        }
     )
 
     init {
