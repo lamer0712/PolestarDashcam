@@ -20,6 +20,7 @@ class PhoneFileServer(
     private val dvrFiles: () -> List<DvrMedia> = { emptyList() },
     private val openDvr: (DvrMedia, Long) -> InputStream = { _, _ -> throw IllegalStateException("DVR relay is unavailable.") }
 ) {
+    companion object { const val PORT = 8787 }
     private val executor = Executors.newFixedThreadPool(4)
     @Volatile private var socket: ServerSocket? = null
     @Volatile private var snapshot: List<SavedMedia> = emptyList()
@@ -28,7 +29,7 @@ class PhoneFileServer(
     fun start(): String {
         stop()
         snapshot = files()
-        val server = ServerSocket(0)
+        val server = ServerSocket(PORT)
         socket = server
         Thread({
             while (!server.isClosed) {
