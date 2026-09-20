@@ -135,6 +135,7 @@ object DvrJson {
         }
         find(root)?.let { return it }
         for (wrapper in listOf("data", "response", "result")) {
+            root.optJSONArray(wrapper)?.let { return it }
             val nested = root.optJSONObject(wrapper) ?: continue
             find(nested)?.let { return it }
         }
