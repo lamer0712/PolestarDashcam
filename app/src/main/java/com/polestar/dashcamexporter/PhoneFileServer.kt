@@ -236,7 +236,12 @@ class PhoneFileServer(
         if (length >= 0) builder.append("Content-Length: $length\r\n")
         builder.append("Cache-Control: no-store\r\n")
         if (name != null) builder.append("Content-Disposition: attachment; filename*=UTF-8''${URLEncoder.encode(name, "UTF-8").replace("+", "%20")}\r\n")
-        if (total > 0) builder.append("Accept-Ranges: bytes\r\nContent-Range: bytes $start-${start + length - 1}/$total\r\n")
+        if (total > 0) {
+            builder.append("Accept-Ranges: bytes\r\n")
+            // Content-Range is valid only on a 206 response. Sending it on a
+            // complete 200 response makes Chrome reject local video playback.
+            if (start > 0 && length >= 0) builder.append("Content-Range: bytes $start-${start + length - 1}/$total\r\n")
+        }
         builder.append("Connection: close\r\n\r\n")
         out.write(builder.toString().toByteArray(StandardCharsets.UTF_8))
     }

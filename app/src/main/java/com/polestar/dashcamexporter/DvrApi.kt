@@ -129,6 +129,13 @@ object DvrJson {
             for (key in obj.keys()) {
                 if (names.any { it.equals(key, ignoreCase = true) }) {
                     obj.optJSONArray(key)?.let { return it }
+                    obj.optJSONObject(key)?.let { nested ->
+                        for (nestedKey in nested.keys()) {
+                            if (names.any { it.equals(nestedKey, ignoreCase = true) }) {
+                                nested.optJSONArray(nestedKey)?.let { return it }
+                            }
+                        }
+                    }
                 }
             }
             return null
