@@ -1,6 +1,7 @@
 package com.polestar.dashcamexporter
 
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
@@ -106,7 +107,7 @@ object DvrJson {
     }
 
     fun files(text: String, directory: MediaDirectory, base: String): List<DvrMedia> {
-        val array = objectFrom(text).optJSONArray("fileList")
+        val array = responseArray(text, "fileList", "files", "filelist", "items")
             ?: throw IOException("filelist response is missing fileList.")
         return (0 until array.length()).map { index ->
             val obj = array.getJSONObject(index)
@@ -117,6 +118,27 @@ object DvrJson {
                 obj.optLong("size", 0).coerceAtLeast(0), obj.optLong("dateTime", 0),
                 obj.optInt("duration", 0), mediaUrl(base, directory.path, name))
         }
+    }
+
+    /** Accept the OEM object shape and wrappers used by newer DVR firmware. */
+    private fun responseArray(text: String, vararg names: String): JSONArray? {
+        val trimmed = text.trim()
+        if (trimmed.startsWith("[")) return runCatching { JSONArray(trimmed) }.getOrNull()
+        val root = objectFrom(text)
+        fun find(obj: JSONObject): JSONArray? {
+            for (key in obj.keys()) {
+                if (names.any { it.equals(key, ignoreCase = true) }) {
+                    obj.optJSONArray(key)?.let { return it }
+                }
+            }
+            return null
+        }
+        find(root)?.let { return it }
+        for (wrapper in listOf("data", "response", "result")) {
+            val nested = root.optJSONObject(wrapper) ?: continue
+            find(nested)?.let { return it }
+        }
+        return null
     }
 
     fun baseUrl(value: String): String {

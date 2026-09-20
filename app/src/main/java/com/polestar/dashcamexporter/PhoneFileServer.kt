@@ -78,7 +78,12 @@ class PhoneFileServer(
             if (target.substringBefore('?') == "/download") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
-                return download(client, snapshot[index], range)
+                return download(client, snapshot[index], range, attachment = true)
+            }
+            if (target.substringBefore('?') == "/stream") {
+                val index = query["i"]?.toIntOrNull()
+                if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
+                return download(client, snapshot[index], range, attachment = false)
             }
             if (target.substringBefore('?') == "/dvr-download") {
                 val index = query["i"]?.toIntOrNull()
@@ -118,8 +123,9 @@ class PhoneFileServer(
         fun savedCard(item: SavedMedia, index: Int): String {
             val media = escape(item.mime)
             val url = "/download?i=$index"
+            val stream = "/stream?i=$index"
             val thumb = "/saved-thumb?i=$index"
-            return card(item.name, item.size, media, thumb, url)
+            return card(item.name, item.size, media, thumb, url, stream)
         }
         fun dvrCard(item: DvrMedia, index: Int): String {
             val media = escape(mimeFor(item.name, item.kind))
@@ -172,14 +178,14 @@ class PhoneFileServer(
         out.write(bytes); out.flush()
     }
 
-    private fun download(socket: Socket, item: SavedMedia, range: String?) {
+    private fun download(socket: Socket, item: SavedMedia, range: String?, attachment: Boolean) {
         val total = item.size
         val start = range?.substringAfter("bytes=", "")?.substringBefore('-')?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
         if (start >= total && total > 0) return response(socket, 416, "Range Not Satisfiable", "Invalid range.")
         val length = if (total > 0) total - start else -1L
         val out = socket.getOutputStream()
         writeHeaders(out, if (start > 0) 206 else 200, if (start > 0) "Partial Content" else "OK",
-            item.mime, length, item.name, total, start)
+            item.mime, length, if (attachment) item.name else null, total, start)
         open(item).use { input ->
             skipFully(input, start)
             val buffer = ByteArray(128 * 1024)
