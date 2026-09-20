@@ -83,7 +83,15 @@ class PhoneFileServer(
             if (target.substringBefore('?') == "/dvr-download") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
-                return downloadDvr(client, dvrSnapshot[index], range)
+                return downloadDvr(client, dvrSnapshot[index], range, attachment = true)
+            }
+            if (target.substringBefore('?') == "/dvr-stream") {
+                val index = query["i"]?.toIntOrNull()
+                if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
+                // Video elements cannot play a response marked as an attachment.
+                // Keep downloads and playback on separate URLs so the browser can
+                // negotiate byte ranges for playback while links still download.
+                return downloadDvr(client, dvrSnapshot[index], range, attachment = false)
             }
             if (target.substringBefore('?') == "/saved-thumb") {
                 val index = query["i"]?.toIntOrNull()
@@ -116,8 +124,9 @@ class PhoneFileServer(
         fun dvrCard(item: DvrMedia, index: Int): String {
             val media = escape(mimeFor(item.name, item.kind))
             val url = "/dvr-download?i=$index"
+            val stream = "/dvr-stream?i=$index"
             val thumb = "/dvr-thumb?i=$index"
-            return card(item.name, item.size, media, thumb, url)
+            return card(item.name, item.size, media, thumb, url, stream)
         }
         val savedCards = snapshot.mapIndexed { index, item -> savedCard(item, index) }.joinToString("\n")
         val dvrCards = dvrSnapshot.mapIndexed { index, item -> dvrCard(item, index) }.joinToString("\n")
@@ -148,10 +157,10 @@ class PhoneFileServer(
         out.write(bytes); out.flush()
     }
 
-    private fun card(name: String, size: Long, mime: String, thumb: String, url: String): String {
+    private fun card(name: String, size: Long, mime: String, thumb: String, url: String, playUrl: String = url): String {
         val safeName = escape(name)
         val sizeText = if (size >= 1024 * 1024) "%.1f MB".format(size / 1024f / 1024f) else "%.0f KB".format(size / 1024f)
-        val visual = if (mime.startsWith("video/")) "<img class=thumb src=\"$thumb\" loading=\"lazy\" onerror=\"this.style.display='none'\" onclick=\"play('$url')\">"
+        val visual = if (mime.startsWith("video/")) "<img class=thumb src=\"$thumb\" loading=\"lazy\" onerror=\"this.style.display='none'\" onclick=\"play('$playUrl')\">"
         else "<img class=thumb src=\"$thumb\" loading=\"lazy\" onclick=\"window.open('$url','_blank')\">"
         return "<article class=card>$visual<div class=body><div class=name title=\"$safeName\">$safeName</div><div class=meta><span>$sizeText</span><span>$mime</span></div><a class=download download href=\"$url\">Download</a></div></article>"
     }
@@ -185,14 +194,14 @@ class PhoneFileServer(
         out.flush()
     }
 
-    private fun downloadDvr(socket: Socket, item: DvrMedia, range: String?) {
+    private fun downloadDvr(socket: Socket, item: DvrMedia, range: String?, attachment: Boolean) {
         val total = item.size
         val start = range?.substringAfter("bytes=", "")?.substringBefore('-')?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
         if (start >= total && total > 0) return response(socket, 416, "Range Not Satisfiable", "Invalid range.")
         val length = if (total > 0) total - start else -1L
         val out = socket.getOutputStream()
         writeHeaders(out, if (start > 0) 206 else 200, if (start > 0) "Partial Content" else "OK",
-            mimeFor(item.name, item.kind), length, item.name, total, start)
+            mimeFor(item.name, item.kind), length, if (attachment) item.name else null, total, start)
         openDvr(item, start).use { input ->
             skipFully(input, start)
             val buffer = ByteArray(128 * 1024)

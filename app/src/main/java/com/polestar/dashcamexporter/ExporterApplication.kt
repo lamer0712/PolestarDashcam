@@ -7,6 +7,10 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.os.storage.StorageManager
 import android.media.MediaMetadataRetriever
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +104,7 @@ class ExportController(private val app: Application) {
         dvrThumbnail = { item ->
             runCatching {
                 thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())?.readBytes()
+                    ?: dvrPlaceholderThumbnail(item)
             }.getOrNull()
         }
     )
@@ -179,6 +184,31 @@ class ExportController(private val app: Application) {
             } finally { retriever.release() }
         }
     }.getOrNull()
+
+    /** Keep a failed DVR thumbnail from leaving an empty card in the phone web UI. */
+    private fun dvrPlaceholderThumbnail(item: DvrMedia): ByteArray {
+        val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(38, 38, 38))
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(255, 122, 0)
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(320f, 180f, 58f, paint)
+        paint.color = Color.rgb(38, 38, 38)
+        canvas.drawPath(android.graphics.Path().apply {
+            moveTo(305f, 148f); lineTo(305f, 212f); lineTo(354f, 180f); close()
+        }, paint)
+        paint.color = Color.WHITE
+        paint.textSize = 22f
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText(item.kind.label.uppercase(), 320f, 302f, paint)
+        return ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
+            bitmap.recycle()
+            output.toByteArray()
+        }
+    }
 
     fun refreshUsbState() {
         val connected = app.getSystemService(StorageManager::class.java).storageVolumes.any {
