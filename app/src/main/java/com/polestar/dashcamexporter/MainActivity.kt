@@ -411,6 +411,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         val items = state.saved.filter { it.key in tailcatSelectionKeys }
         TailcatSavedDialog(
             url = state.phoneServerUrl,
+            carTailcatAddr = state.tailcatControlAddr,
             items = items,
             onDismiss = {
                 showTailcatSavedDialog = false
@@ -432,7 +433,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
 
 
 @Composable
-private fun TailcatSavedDialog(url: String?, items: List<SavedMedia>, onDismiss: () -> Unit, onManualSend: (String) -> Unit) {
+private fun TailcatSavedDialog(url: String?, carTailcatAddr: String?, items: List<SavedMedia>, onDismiss: () -> Unit, onManualSend: (String) -> Unit) {
     val fileName = remember(items) {
         when {
             items.isEmpty() -> "galleryplus-download.bin"
@@ -440,7 +441,14 @@ private fun TailcatSavedDialog(url: String?, items: List<SavedMedia>, onDismiss:
             else -> "GalleryPlus-${items.size}-files.zip"
         }
     }
-    val tailcatUrl = remember(url, fileName) { url?.let { "${it}tailcat/?file=${Uri.encode(fileName)}" } }
+    val tailcatUrl = remember(url, fileName, carTailcatAddr) {
+        url?.let { base ->
+            buildString {
+                append(base).append("tailcat/?file=").append(Uri.encode(fileName))
+                carTailcatAddr?.let { append("&car=").append(Uri.encode(it)) }
+            }
+        }
+    }
     val qr = remember(tailcatUrl) { tailcatUrl?.let { createQrBitmap(it, 720) } }
     var manualAddr by rememberSaveable { mutableStateOf("") }
     AlertDialog(
@@ -463,6 +471,8 @@ private fun TailcatSavedDialog(url: String?, items: List<SavedMedia>, onDismiss:
                     Text(if (items.size == 1) "File: $fileName" else "Files: ${items.size} selected as $fileName",
                         color = Color(0xFFA3F0D5), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(tailcatUrl ?: "No local share address yet.", color = Color(0xFFB8B8B8), fontSize = 13.sp)
+                    Text(if (carTailcatAddr != null) "Address exchange: Tailcat" else "Address exchange: local fallback",
+                        color = Color(0xFF8E99A3), fontSize = 13.sp)
                     Spacer(Modifier.height(6.dp))
                     Text("Manual fallback", color = Color.White, fontSize = 14.sp)
                     OutlinedTextField(

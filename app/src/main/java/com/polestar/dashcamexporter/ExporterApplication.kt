@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.IOException
+import com.polestar.tailcat.tailcatbridge.AddressCallback
 import com.polestar.tailcat.tailcatbridge.Progress
 import com.polestar.tailcat.tailcatbridge.Tailcatbridge
 import java.io.InputStream
@@ -56,7 +57,8 @@ data class ExportState(
     val usbConnected: Boolean = false,
     val phoneShareAvailable: Boolean = true,
     val phoneServerUrl: String? = null,
-    val phoneShareDiagnostics: List<String> = emptyList()
+    val phoneShareDiagnostics: List<String> = emptyList(),
+    val tailcatControlAddr: String? = null
 )
 
 class ExporterApplication : Application() {
@@ -211,6 +213,16 @@ class ExportController(private val app: Application) {
         pendingTailcatItems = items
         lastTailcatAutoAddress = null
         startPhoneServer()
+        try {
+            val carAddr = Tailcatbridge.startAddressExchange(object : AddressCallback {
+                override fun onAddress(addr: String) { handleTailcatAddress(addr) }
+                override fun onError(message: String) { this@ExportController.message("Tailcat address exchange failed: $message") }
+            })
+            mutable.update { it.copy(tailcatControlAddr = carAddr) }
+        } catch (e: Exception) {
+            mutable.update { it.copy(tailcatControlAddr = null) }
+            message("Tailcat address exchange failed: ${e.message}")
+        }
         val label = if (items.size == 1) items.first().name else "${items.size} files"
         message("Scan the Tailcat QR to send $label.")
     }
@@ -298,7 +310,8 @@ class ExportController(private val app: Application) {
 
     fun stopPhoneServer() {
         phoneServer.stop()
-        mutable.update { it.copy(phoneServerUrl = null) }
+        runCatching { Tailcatbridge.stopAddressExchange() }
+        mutable.update { it.copy(phoneServerUrl = null, tailcatControlAddr = null) }
     }
 
     private fun savedThumbnailForPhone(item: SavedMedia): ByteArray? = runCatching {

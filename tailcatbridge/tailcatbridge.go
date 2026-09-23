@@ -4,7 +4,10 @@ import (
     "context"
     "fmt"
     "io"
+    "net"
     "os"
+    "strings"
+    "sync"
     "time"
 
     "github.com/tailscale/tailcat"
@@ -13,6 +16,74 @@ import (
 
 type Progress interface {
     OnProgress(sent int64, total int64)
+}
+
+type AddressCallback interface {
+    OnAddress(addr string)
+    OnError(message string)
+}
+
+var controlMu sync.Mutex
+var controlServer *tailcat.Server
+var controlListener net.Listener
+
+func StartAddressExchange(callback AddressCallback) (string, error) {
+    StopAddressExchange()
+
+    ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+    defer cancel()
+
+    srv := &tailcat.Server{Logf: logger.Discard}
+    ln, err := srv.Listen(ctx, "tcp", ":2")
+    if err != nil {
+        srv.Close()
+        return "", err
+    }
+
+    controlMu.Lock()
+    controlServer = srv
+    controlListener = ln
+    controlMu.Unlock()
+
+    go func() {
+        for {
+            conn, err := ln.Accept()
+            if err != nil {
+                if callback != nil && !strings.Contains(err.Error(), "closed") {
+                    callback.OnError(err.Error())
+                }
+                return
+            }
+            go func(c net.Conn) {
+                defer c.Close()
+                _ = c.SetDeadline(time.Now().Add(20 * time.Second))
+                b, err := io.ReadAll(io.LimitReader(c, 4096))
+                if err != nil {
+                    if callback != nil { callback.OnError(err.Error()) }
+                    return
+                }
+                addr := strings.TrimSpace(string(b))
+                if !strings.HasPrefix(addr, "tc") {
+                    if callback != nil { callback.OnError("invalid Tailcat address") }
+                    return
+                }
+                if callback != nil { callback.OnAddress(addr) }
+            }(conn)
+        }
+    }()
+
+    return string(srv.TailcatAddr()), nil
+}
+
+func StopAddressExchange() {
+    controlMu.Lock()
+    ln := controlListener
+    srv := controlServer
+    controlListener = nil
+    controlServer = nil
+    controlMu.Unlock()
+    if ln != nil { _ = ln.Close() }
+    if srv != nil { _ = srv.Close() }
 }
 
 func SendFile(addr string, path string, progress Progress) error {

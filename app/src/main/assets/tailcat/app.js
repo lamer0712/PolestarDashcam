@@ -1,6 +1,7 @@
 const CHUNK = 64 * 1024;
 const params = new URLSearchParams(location.search);
 const fileName = params.get("file") || "galleryplus-download.bin";
+const carAddr = params.get("car") || "";
 const canonicalDERPMapURL = "https://tailcat.dev/derpmap.json";
 const $ = (id) => document.getElementById(id);
 const setStatus = (msg, err=false) => { const el=$("status"); el.textContent=msg; el.classList.toggle("err", err); };
@@ -28,6 +29,15 @@ await ready;
 setStatus("Starting secure receiver…");
 
 async function registerAddress(addr) {
+  if (carAddr) {
+    setStatus("Sending receiver address to Gallery+ over Tailcat…");
+    const conn = await tailcatDial({addr: carAddr, port: 2, derpMapURL: canonicalDERPMapURL, verbose:false});
+    await conn.write(new TextEncoder().encode(addr));
+    await conn.closeWrite();
+    while ((await conn.read()) !== null) {}
+    conn.close();
+    return;
+  }
   const res = await fetch("/tailcat-register", {method:"POST", headers:{"Content-Type":"text/plain"}, body:addr});
   if (!res.ok) throw new Error(`register failed: ${res.status}`);
 }
