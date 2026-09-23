@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.*
@@ -229,6 +230,8 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
     var savedOpen by rememberSaveable { mutableStateOf(false) }
     var shareOpen by rememberSaveable { mutableStateOf(false) }
+    var showTailcatSavedDialog by rememberSaveable { mutableStateOf(false) }
+    var tailcatSelectionKeys by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
@@ -300,6 +303,16 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                             modifier = Modifier.heightIn(min = 52.dp)) {
                             Icon(Icons.Default.Usb, contentDescription = "Copy to USB")
                             Spacer(Modifier.width(6.dp)); Text("Copy to USB")
+                        }
+                        Button(onClick = {
+                            val items = state.saved.filter { it.key in selection }
+                            tailcatSelectionKeys = items.map { it.key }
+                            controller.prepareTailcatSavedTransfer(items)
+                            showTailcatSavedDialog = true
+                        }, enabled = selection.isNotEmpty() && !state.busy,
+                            modifier = Modifier.heightIn(min = 52.dp)) {
+                            Icon(Icons.Default.Send, contentDescription = "Send with Tailcat")
+                            Spacer(Modifier.width(6.dp)); Text("Tailcat")
                         }
                         Button(
                             onClick = { controller.deleteSaved(state.saved.filter { it.key in selection }) },
@@ -394,6 +407,18 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
             }
         }
     }
+    if (showTailcatSavedDialog) {
+        val items = state.saved.filter { it.key in tailcatSelectionKeys }
+        TailcatSavedDialog(
+            url = state.phoneServerUrl,
+            items = items,
+            onDismiss = {
+                showTailcatSavedDialog = false
+                controller.stopPhoneServer()
+            },
+            onManualSend = { addr -> controller.sendSavedViaTailcat(addr, items) }
+        )
+    }
     fullScreenSaved?.let { file ->
         FullScreenVideo(file = file, onDismiss = { fullScreenSaved = null })
     }
@@ -405,11 +430,67 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
 }
 
+
+@Composable
+private fun TailcatSavedDialog(url: String?, items: List<SavedMedia>, onDismiss: () -> Unit, onManualSend: (String) -> Unit) {
+    val fileName = remember(items) {
+        when {
+            items.isEmpty() -> "galleryplus-download.bin"
+            items.size == 1 -> items.first().name
+            else -> "GalleryPlus-${items.size}-files.zip"
+        }
+    }
+    val tailcatUrl = remember(url, fileName) { url?.let { "${it}tailcat/?file=${Uri.encode(fileName)}" } }
+    val qr = remember(tailcatUrl) { tailcatUrl?.let { createQrBitmap(it, 720) } }
+    var manualAddr by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send with Tailcat") },
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
+                Surface(color = Color.White, modifier = Modifier.size(240.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (qr != null) Image(
+                            bitmap = qr.asImageBitmap(),
+                            contentDescription = "Open Tailcat receiver",
+                            modifier = Modifier.fillMaxSize().padding(10.dp),
+                            contentScale = ContentScale.FillBounds
+                        ) else Text("No address", color = Color.Black, fontSize = 22.sp)
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.widthIn(min = 420.dp, max = 620.dp)) {
+                    Text("Scan this QR on your phone. Keep the page open; Gallery+ sends the selected Saved file automatically.", color = Color.White)
+                    Text(if (items.size == 1) "File: $fileName" else "Files: ${items.size} selected as $fileName",
+                        color = Color(0xFFA3F0D5), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(tailcatUrl ?: "No local share address yet.", color = Color(0xFFB8B8B8), fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Manual fallback", color = Color.White, fontSize = 14.sp)
+                    OutlinedTextField(
+                        value = manualAddr,
+                        onValueChange = { manualAddr = it.trim() },
+                        label = { Text("tc... address") },
+                        placeholder = { Text("tc…") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = { onManualSend(manualAddr) },
+                        enabled = manualAddr.startsWith("tc") && items.isNotEmpty()
+                    ) { Text("Send manually") }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+}
+
 @Composable
 private fun SharePane(url: String?, latestSaved: SavedMedia?, onTailcatSend: (String) -> Unit) {
     val qr = remember(url) { url?.let { createQrBitmap(it, 720) } }
-    val tailcatUrl = "https://tailscale.github.io/tailcat/?mode=listen"
-    val tailcatQr = remember { createQrBitmap(tailcatUrl, 720) }
+    val tailcatUrl = remember(url, latestSaved?.name) {
+        url?.let { "${it}tailcat/?file=${Uri.encode(latestSaved?.name ?: "galleryplus-download.bin")}" }
+    }
+    val tailcatQr = remember(tailcatUrl) { tailcatUrl?.let { createQrBitmap(it, 720) } }
     var tailcatAddr by rememberSaveable { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().padding(start = 31.dp, top = 31.dp, end = 31.dp),
@@ -441,7 +522,7 @@ private fun SharePane(url: String?, latestSaved: SavedMedia?, onTailcatSend: (St
             }
             Column(Modifier.widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Tailcat experiment", color = Color.White, fontSize = 28.sp)
-                Text("No Tailscale account is required. Traffic uses Tailcat's browser relay path, so large videos can be slow.",
+                Text("No Tailscale account is required. Scan once and keep Safari open; Gallery+ sends the latest Saved file automatically.",
                     color = Color(0xFFB8B8B8), fontSize = 18.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(color = Color.White, shape = RoundedCornerShape(0.dp), modifier = Modifier.size(220.dp)) {
@@ -456,25 +537,29 @@ private fun SharePane(url: String?, latestSaved: SavedMedia?, onTailcatSend: (St
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("1. Scan this QR on iPhone.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
-                        Text("2. Copy the tc... listener address.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
-                        Text("3. Enter it here and send the latest Saved file.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
+                        Text("2. Keep the page open while it loads Tailcat.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
+                        Text("3. The latest Saved file sends automatically.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
                     }
                 }
+                if (tailcatUrl == null) {
+                    Text("No local share address yet. Reopen Share to start the local server.", color = Color(0xFFFFB4AB), fontSize = 17.sp)
+                }
+                Text("File: ${latestSaved?.name ?: "No Saved files"}", color = Color(0xFFA3F0D5), fontSize = 18.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Manual fallback", color = Color.White, fontSize = 18.sp)
                 OutlinedTextField(
                     value = tailcatAddr,
                     onValueChange = { tailcatAddr = it.trim() },
-                    label = { Text("iPhone Tailcat address") },
+                    label = { Text("tc... address") },
                     placeholder = { Text("tc…") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("File: ${latestSaved?.name ?: "No Saved files"}", color = Color(0xFFA3F0D5), fontSize = 18.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Button(
                     onClick = { onTailcatSend(tailcatAddr) },
                     enabled = latestSaved != null && tailcatAddr.startsWith("tc"),
                     modifier = Modifier.heightIn(min = 52.dp)
-                ) { Text("Send latest Saved file") }
+                ) { Text("Send manually") }
             }
         }
     }

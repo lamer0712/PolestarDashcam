@@ -4,19 +4,19 @@ This branch adds an experimental Tailcat path for moving one Saved file from Gal
 
 ## Flow
 
-1. Open **Share** in Gallery+.
-2. Scan the **Tailcat experiment** QR on the iPhone.
-3. The QR opens `https://tailscale.github.io/tailcat/?mode=listen`, which starts the browser Tailcat receiver.
-4. Copy the `tc...` listener address shown on the iPhone.
-5. Enter that address in Gallery+.
-6. Tap **Send latest Saved file**.
+1. Open **Saved** in Gallery+.
+2. Enter selection mode and choose one or more files.
+3. Tap **Tailcat** next to **Copy to USB** in the bottom action bar.
+4. Scan the QR on the iPhone and keep the page open.
+5. The custom Gallery+ Tailcat receiver page registers its `tc...` listener address with the vehicle app.
+6. Gallery+ automatically sends the selected file. If multiple files are selected, Gallery+ sends one ZIP archive.
 
-Gallery+ sends the newest Saved file through the embedded Go Tailcat bridge (`tailcatbridge.aar`).
+Gallery+ serves the receiver page from `/tailcat/` on the local phone-share server and sends the selected Saved media through the embedded Go Tailcat bridge (`tailcatbridge.aar`). A manual `tc...` address fallback remains available in the dialog.
 
 ## Current limitations
 
-- This is a one-file PoC. It sends only the latest Saved file.
-- The iPhone address must be typed into the vehicle UI. A smoother handshake needs a custom hosted Tailcat web page, similar to tailcatchat's invite exchange.
+- This is still a PoC, but it now sends the selected Saved file set. Multiple selections are zipped before transfer.
+- The QR receiver page is served from the vehicle app, so the phone must be able to open the local Gallery+ share URL at least once. If the hotspot blocks phone-to-vehicle HTTP, use Tailscale or a hosted receiver page.
 - Browser Tailcat currently uses DERP relay only, so large videos can be slow.
 - The official Tailcat web demo uses the browser's save-file picker. iPhone Safari compatibility must be validated in the vehicle/phone environment.
 - The embedded Go bridge is arm64-only for now.

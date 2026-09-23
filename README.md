@@ -1,3 +1,4 @@
+- 0.4.87: Saved 화면에서 선택한 파일을 Tailcat으로 전송하는 버튼을 USB 복사 버튼 옆에 추가했습니다. 선택 파일 1개는 그대로 보내고, 여러 개를 선택하면 ZIP 하나로 묶어 iPhone Tailcat 수신 페이지로 자동 전송합니다.
 - 0.4.86: Tailcat WASM 전송 PoC를 추가했습니다. Share 화면에서 iPhone Tailcat Receive 페이지 QR을 열고, iPhone에 표시된 `tc...` listener 주소를 입력하면 최신 Saved 파일 1개를 Tailcat으로 전송합니다. 이 경로는 Tailscale 계정이 필요 없지만 브라우저 DERP relay 경로라 대용량 영상은 느릴 수 있습니다.
 - 0.4.85: 휴대폰 웹 DVR 탭이 `Loading...`에 머무르지 않도록 앱이 이미 가진 DVR 목록을 우선 반환하고, 캐시가 없을 때는 첫 페이지만 빠르게 조회합니다. 웹 DVR 요청은 15초 후 안내 문구로 전환합니다.
 - 0.4.84: MP4/MOV `moov` fast-start 재배치를 롤백했습니다. 휴대폰 웹 공유에서 DVR과 Saved 영상 재생은 막고, 썸네일·사진 보기·파일 다운로드만 제공합니다.

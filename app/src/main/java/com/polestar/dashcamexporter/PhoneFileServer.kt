@@ -30,7 +30,8 @@ class PhoneFileServer(
     private val dvrFiles: () -> List<DvrMedia> = { emptyList() },
     private val openDvr: (DvrMedia, Long) -> InputStream = { _, _ -> throw IllegalStateException("DVR relay is unavailable.") },
     private val savedThumbnail: (SavedMedia) -> ByteArray? = { null },
-    private val dvrThumbnail: (DvrMedia) -> ByteArray? = { null }
+    private val dvrThumbnail: (DvrMedia) -> ByteArray? = { null },
+    private val onTailcatAddress: (String) -> Unit = {}
 ) {
     companion object { val PORTS = listOf(8080, 8787, 8000, 8888, 5000) }
     private val executor = Executors.newFixedThreadPool(4)
@@ -92,46 +93,64 @@ class PhoneFileServer(
             client.tcpNoDelay = true
             val reader = BufferedReader(InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8))
             val request = reader.readLine() ?: return
-            // Consume headers before writing the response.
             var range: String? = null
+            var contentLength = 0
             while (true) {
                 val header = reader.readLine() ?: break
                 if (header.isEmpty()) break
                 if (header.startsWith("Range:", ignoreCase = true)) range = header.substringAfter(':').trim()
+                if (header.startsWith("Content-Length:", ignoreCase = true)) contentLength = header.substringAfter(':').trim().toIntOrNull() ?: 0
             }
             val parts = request.split(' ', limit = 3)
-            if (parts.size < 2 || parts[0] != "GET") return response(client, 405, "Method Not Allowed", "Only GET is supported.")
+            if (parts.size < 2) return response(client, 400, "Bad Request", "Invalid request.")
+            val method = parts[0]
             val target = parts[1]
+            val path = target.substringBefore('?')
             val query = target.substringAfter('?', "").split('&').mapNotNull {
                 val pair = it.split('=', limit = 2)
                 if (pair.size == 2) URLDecoder.decode(pair[0], "UTF-8") to URLDecoder.decode(pair[1], "UTF-8") else null
             }.toMap()
-            if (target.substringBefore('?') == "/") return listing(client)
-            if (target.substringBefore('?') == "/dvr-list") return dvrListing(client)
-            if (target.substringBefore('?') == "/download") {
+            if (method == "POST" && path == "/tailcat-register") {
+                val body = CharArray(contentLength.coerceIn(0, 4096))
+                var read = 0
+                while (read < body.size) {
+                    val count = reader.read(body, read, body.size - read)
+                    if (count < 0) break
+                    read += count
+                }
+                val addr = String(body, 0, read).trim()
+                if (!addr.startsWith("tc")) return response(client, 400, "Bad Request", "Invalid Tailcat address.")
+                onTailcatAddress(addr)
+                return response(client, 200, "OK", "Tailcat address registered.")
+            }
+            if (method != "GET") return response(client, 405, "Method Not Allowed", "Only GET and Tailcat registration POST are supported.")
+            if (path == "/") return listing(client)
+            if (path == "/tailcat" || path.startsWith("/tailcat/")) return tailcatAsset(client, path)
+            if (path == "/dvr-list") return dvrListing(client)
+            if (path == "/download") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
                 return download(client, snapshot[index], range, attachment = true)
             }
-            if (target.substringBefore('?') == "/stream") {
+            if (path == "/stream") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
                 val item = snapshot[index]
                 if (item.mime.startsWith("video/")) return response(client, 404, "Not Found", "Saved video playback is hidden on the phone web page.")
                 return download(client, item, range, attachment = false)
             }
-            if (target.substringBefore('?') == "/saved-thumb") {
+            if (path == "/saved-thumb") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in snapshot.indices) return response(client, 404, "Not Found", "File not found.")
                 return image(client, savedThumbnail(snapshot[index]))
             }
-            if (target.substringBefore('?') == "/dvr-download") {
+            if (path == "/dvr-download") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
                 return downloadDvr(client, dvrSnapshot[index], range, attachment = true)
             }
-            if (target.substringBefore('?') == "/dvr-stream") return response(client, 404, "Not Found", "DVR playback is hidden on the phone web page.")
-            if (target.substringBefore('?') == "/dvr-thumb") {
+            if (path == "/dvr-stream") return response(client, 404, "Not Found", "DVR playback is hidden on the phone web page.")
+            if (path == "/dvr-thumb") {
                 val index = query["i"]?.toIntOrNull()
                 if (index == null || index !in dvrSnapshot.indices) return response(client, 404, "Not Found", "DVR file not found.")
                 return image(client, dvrThumbnail(dvrSnapshot[index]))
@@ -143,6 +162,25 @@ class PhoneFileServer(
                 runCatching { response(client, 500, "Internal Server Error", error.message ?: "Request failed.") }
             }
         }
+    }
+
+    private fun tailcatAsset(socket: Socket, path: String) {
+        val relative = path.removePrefix("/tailcat").removePrefix("/").substringBefore('?')
+        val name = if (relative.isBlank()) "index.html" else relative
+        if (name.contains("..") || name.contains('/')) return response(socket, 404, "Not Found", "Not found.")
+        val asset = "tailcat/$name"
+        val bytes = try { context.assets.open(asset).use { it.readBytes() } }
+            catch (_: Exception) { return response(socket, 404, "Not Found", "Not found.") }
+        val type = when {
+            name.endsWith(".html") -> "text/html; charset=utf-8"
+            name.endsWith(".js") -> "application/javascript; charset=utf-8"
+            name.endsWith(".wasm") -> "application/wasm"
+            name.endsWith(".gz") -> "application/gzip"
+            else -> "application/octet-stream"
+        }
+        val out = socket.getOutputStream()
+        writeHeaders(out, 200, "OK", type, bytes.size.toLong())
+        out.write(bytes); out.flush()
     }
 
     private fun listing(socket: Socket) {

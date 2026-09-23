@@ -28,6 +28,8 @@ import com.polestar.tailcat.tailcatbridge.Progress
 import com.polestar.tailcat.tailcatbridge.Tailcatbridge
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Semaphore
 import java.util.concurrent.ConcurrentHashMap
@@ -91,6 +93,8 @@ class ExportController(private val app: Application) {
     /** Limit thumbnail traffic so a long list does not open one DVR request per tile. */
     private val thumbnailSlots = Semaphore(20, true)
     private val phoneDvrLock = Any()
+    @Volatile private var lastTailcatAutoAddress: String? = null
+    @Volatile private var pendingTailcatItems: List<SavedMedia> = emptyList()
     private val phoneServer = PhoneFileServer(
         context = app,
         files = { state.value.saved },
@@ -108,7 +112,8 @@ class ExportController(private val app: Application) {
         dvrThumbnail = { item -> runCatching {
             thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())?.readBytes()
                 ?: dvrPlaceholderThumbnail(item)
-        }.getOrNull() }
+        }.getOrNull() },
+        onTailcatAddress = ::handleTailcatAddress
     )
 
     init {
@@ -201,19 +206,78 @@ class ExportController(private val app: Application) {
             mutable.update { it.copy(phoneServerUrl = null, phoneShareDiagnostics = diagnostics, message = "No reachable phone address found.") }
         }
     }
+    fun prepareTailcatSavedTransfer(items: List<SavedMedia>) {
+        if (items.isEmpty()) { message("Select a Saved file first."); return }
+        pendingTailcatItems = items
+        lastTailcatAutoAddress = null
+        startPhoneServer()
+        val label = if (items.size == 1) items.first().name else "${items.size} files"
+        message("Scan the Tailcat QR to send $label.")
+    }
+
+    private fun handleTailcatAddress(addr: String) {
+        if (addr == lastTailcatAutoAddress) return
+        lastTailcatAutoAddress = addr
+        val items = pendingTailcatItems.ifEmpty { state.value.saved.firstOrNull()?.let { listOf(it) } ?: emptyList() }
+        if (items.isEmpty()) { message("Select a Saved file first."); return }
+        message("Tailcat receiver connected. Sending selected file.")
+        sendSavedViaTailcat(addr, items)
+    }
+
     fun sendLatestSavedViaTailcat(addr: String) {
-        val cleanAddr = addr.trim()
-        if (cleanAddr.isBlank()) { message("Enter the iPhone Tailcat address first."); return }
         val item = state.value.saved.firstOrNull()
         if (item == null) { message("Download a Saved file first."); return }
+        sendSavedViaTailcat(addr, listOf(item))
+    }
+
+    fun sendSavedViaTailcat(addr: String, items: List<SavedMedia>) {
+        val cleanAddr = addr.trim()
+        if (cleanAddr.isBlank()) { message("Enter the iPhone Tailcat address first."); return }
+        if (items.isEmpty()) { message("Select a Saved file first."); return }
         transfer("Sending with Tailcat") {
-            val source = prepareTailcatSource(item)
+            val source = prepareTailcatSource(items)
             Tailcatbridge.sendFile(cleanAddr, source.absolutePath, object : Progress {
                 override fun onProgress(sent: Long, total: Long) {
-                    progress(1, 1, item.name, sent, total)
+                    progress(1, 1, source.name, sent, total)
                 }
             })
-            "Tailcat transfer complete: ${item.name}"
+            pendingTailcatItems = emptyList()
+            "Tailcat transfer complete: ${source.name}"
+        }
+    }
+
+    private fun prepareTailcatSource(items: List<SavedMedia>): File {
+        if (items.size == 1) return prepareTailcatSource(items.first())
+        val dir = File(app.cacheDir, "tailcat-share").also { it.mkdirs() }
+        val target = File(dir, "GalleryPlus-${items.size}-files.zip")
+        if (target.exists()) target.delete()
+        ZipOutputStream(target.outputStream().buffered()).use { zip ->
+            val usedNames = mutableSetOf<String>()
+            items.forEachIndexed { index, item ->
+                stop.check()
+                val entryName = uniqueZipName(item.name.ifBlank { "file-${index + 1}" }, usedNames)
+                zip.putNextEntry(ZipEntry(entryName))
+                openSavedInput(item).use { input ->
+                    StreamCopy.copy(input, zip, item.size, stop) { done, total ->
+                        progress(index + 1, items.size, item.name, done, total)
+                    }
+                }
+                zip.closeEntry()
+            }
+        }
+        return target
+    }
+
+    private fun uniqueZipName(name: String, usedNames: MutableSet<String>): String {
+        val safe = name.replace(Regex("[\\/:*?\"<>|]"), "_").ifBlank { "file" }
+        if (usedNames.add(safe)) return safe
+        val base = safe.substringBeforeLast('.', safe)
+        val ext = safe.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.let { ".$it" } ?: ""
+        var counter = 2
+        while (true) {
+            val candidate = "$base-$counter$ext"
+            if (usedNames.add(candidate)) return candidate
+            counter++
         }
     }
 
