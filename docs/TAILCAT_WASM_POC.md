@@ -12,12 +12,13 @@ This branch adds an experimental Tailcat path for moving one Saved file from Gal
 6. The phone browser creates its own receive listener, then sends that receive `tc...` address back to the vehicle over the vehicle Tailcat control listener.
 7. Gallery+ automatically sends the selected file. If multiple files are selected, Gallery+ sends one ZIP archive.
 
-Gallery+ currently serves the receiver page from `/tailcat/` on the local phone-share server, but the address exchange itself no longer needs `/tailcat-register` when the QR contains `car=...`. The local `/tailcat-register` path and manual `tc...` address entry remain available as fallbacks. Selected Saved media is sent through the embedded Go Tailcat bridge (`tailcatbridge.aar`).
+Gallery+ now prefers the hosted receiver page at `https://unghui.github.io/PolestarDashcamExporter/tailcat/` when a vehicle-side `car=...` Tailcat control address is available. The app-local `/tailcat/` page, local `/tailcat-register` path, and manual `tc...` address entry remain available as fallbacks. Selected Saved media is sent through the embedded Go Tailcat bridge (`tailcatbridge.aar`).
 
 ## Current limitations
 
 - This is still a PoC, but it now sends the selected Saved file set. Multiple selections are zipped before transfer.
-- The QR receiver page is still served from the vehicle app in this APK, so the phone must be able to open that page at least once. To remove the same-network dependency completely, host the same `tailcat/` web assets on public HTTPS and point the QR there with the vehicle `car=...` Tailcat address.
+- The hosted receiver assets live in `docs/tailcat/` for GitHub Pages. Enable GitHub Pages from the repository's `main` branch `/docs` folder.
+- If the GitHub account or repository name changes, update `HOSTED_TAILCAT_RECEIVER_URL` in `MainActivity.kt`.
 - Browser Tailcat currently uses DERP relay only, so large videos can be slow.
 - The official Tailcat web demo uses the browser's save-file picker. iPhone Safari compatibility must be validated in the vehicle/phone environment.
 - The embedded Go bridge is arm64-only for now.

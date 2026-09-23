@@ -1,3 +1,4 @@
+- 0.4.89: Tailcat receiver 페이지를 GitHub Pages 정적 사이트(`docs/tailcat`)로 분리했습니다. Saved 전송 QR은 차량 control `tc...` 주소가 있으면 `https://unghui.github.io/PolestarDashcamExporter/tailcat/`를 사용해 폰이 차량 로컬 HTTP 서버를 열지 않아도 주소 교환을 시작할 수 있습니다.
 - 0.4.88: Tailcat 전송을 차량 control listener 방식으로 확장했습니다. Saved에서 선택 파일을 누르면 차량 앱이 먼저 `tc...` control 주소를 만들고 QR에 포함하며, 폰 브라우저는 자기 수신 주소를 Tailcat으로 차량에 되돌려 보낸 뒤 선택 파일을 받습니다. 로컬 `/tailcat-register`는 fallback으로 유지합니다.
 - 0.4.87: Saved 화면에서 선택한 파일을 Tailcat으로 전송하는 버튼을 USB 복사 버튼 옆에 추가했습니다. 선택 파일 1개는 그대로 보내고, 여러 개를 선택하면 ZIP 하나로 묶어 iPhone Tailcat 수신 페이지로 자동 전송합니다.
 - 0.4.86: Tailcat WASM 전송 PoC를 추가했습니다. Share 화면에서 iPhone Tailcat Receive 페이지 QR을 열고, iPhone에 표시된 `tc...` listener 주소를 입력하면 최신 Saved 파일 1개를 Tailcat으로 전송합니다. 이 경로는 Tailscale 계정이 필요 없지만 브라우저 DERP relay 경로라 대용량 영상은 느릴 수 있습니다.

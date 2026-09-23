@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gallery+ Tailcat</title>
+<style>
+:root{color-scheme:dark;--bg:#121212;--panel:#1b1b1b;--line:#343434;--muted:#aeb4b9;--orange:#ff7a00;--ok:#a3f0d5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:22px;line-height:1.35}.wrap{max-width:780px;margin:0 auto}.logo{color:var(--orange);font-weight:700;font-size:24px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}h1{font-size:28px;margin:0 0 8px}p{color:var(--muted);margin:8px 0}.status{color:var(--ok);font-size:18px;font-weight:600;word-break:break-word}.addr{font-family:ui-monospace,monospace;font-size:12px;color:#d5dde4;word-break:break-all;background:#0c0c0c;border-radius:8px;padding:10px;max-height:90px;overflow:auto}.bar{height:12px;background:#333;border-radius:999px;overflow:hidden;margin-top:12px}.fill{height:100%;width:0;background:var(--orange);transition:width .15s}.download{display:inline-block;margin-top:14px;background:var(--orange);color:#111;text-decoration:none;border-radius:8px;padding:12px 14px;font-weight:700}.small{font-size:13px}.hidden{display:none}button{background:var(--orange);border:0;border-radius:8px;padding:12px 14px;font-weight:700;color:#111}.err{color:#ffb4ab}</style>
+</head>
+<body><main class="wrap">
+<div class="logo">Gallery+</div>
+<section class="card">
+<h1>Receive dashcam file</h1>
+<p>This page uses Tailcat in the browser. No Tailscale account is required. Large videos may be slow because browser traffic uses relay mode.</p>
+<p id="status" class="status">Loading Tailcat…</p>
+<div class="bar"><div id="fill" class="fill"></div></div>
+</section>
+<section class="card">
+<p class="small">Receiver address</p>
+<div id="addr" class="addr">Waiting…</div>
+<p id="hint">Keep this page open. Gallery+ will start sending after the address is registered.</p>
+</section>
+<section id="result" class="card hidden">
+<p id="done" class="status"></p>
+<a id="download" class="download" download>Download file</a>
+<p class="small">If the download does not start, tap the button above.</p>
+</section>
+<section id="fallback" class="card hidden">
+<p class="err">Automatic registration failed. Copy this address into Gallery+ Tailcat experiment.</p>
+<button id="copy">Copy address</button>
+</section>
+</main>
+<script src="wasm_exec.js"></script>
+<script type="module" src="app.js"></script>
+</body></html>

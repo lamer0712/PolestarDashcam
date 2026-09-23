@@ -75,6 +75,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+private const val HOSTED_TAILCAT_RECEIVER_URL = "https://unghui.github.io/PolestarDashcamExporter/tailcat/"
+
 class MainActivity : ComponentActivity() {
     private val controller get() = (application as ExporterApplication).controller
     private var pendingCopies = arrayListOf<String>()
@@ -442,9 +444,10 @@ private fun TailcatSavedDialog(url: String?, carTailcatAddr: String?, items: Lis
         }
     }
     val tailcatUrl = remember(url, fileName, carTailcatAddr) {
-        url?.let { base ->
+        val base = if (carTailcatAddr != null) HOSTED_TAILCAT_RECEIVER_URL else url?.let { "${it}tailcat/" }
+        base?.let { receiver ->
             buildString {
-                append(base).append("tailcat/?file=").append(Uri.encode(fileName))
+                append(receiver).append("?file=").append(Uri.encode(fileName))
                 carTailcatAddr?.let { append("&car=").append(Uri.encode(it)) }
             }
         }
@@ -471,7 +474,7 @@ private fun TailcatSavedDialog(url: String?, carTailcatAddr: String?, items: Lis
                     Text(if (items.size == 1) "File: $fileName" else "Files: ${items.size} selected as $fileName",
                         color = Color(0xFFA3F0D5), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(tailcatUrl ?: "No local share address yet.", color = Color(0xFFB8B8B8), fontSize = 13.sp)
-                    Text(if (carTailcatAddr != null) "Address exchange: Tailcat" else "Address exchange: local fallback",
+                    Text(if (carTailcatAddr != null) "Receiver page: GitHub Pages · Address exchange: Tailcat" else "Receiver page: local fallback",
                         color = Color(0xFF8E99A3), fontSize = 13.sp)
                     Spacer(Modifier.height(6.dp))
                     Text("Manual fallback", color = Color.White, fontSize = 14.sp)
