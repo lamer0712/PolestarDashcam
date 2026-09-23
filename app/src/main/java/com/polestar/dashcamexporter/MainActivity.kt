@@ -31,9 +31,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Usb
-import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -165,6 +166,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                          onChooseFolder: () -> Unit, onPhoneServer: () -> Unit) {
     val state by controller.state.collectAsState()
     var showInitialFolderPrompt by rememberSaveable { mutableStateOf(false) }
+    var showShareUnavailable by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { controller.autoConnect() }
     LaunchedEffect(Unit) {
         while (true) {
@@ -179,9 +181,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }
     LaunchedEffect(state.message) {
         if (state.message.isNotBlank()) Toast.makeText(controller.appContext, state.message, Toast.LENGTH_SHORT).show()
-    }
-    state.phoneServerUrl?.let { url ->
-        PhoneServerDialog(url = url, onDismiss = controller::stopPhoneServer)
     }
     state.errorMessage?.let { error ->
         AlertDialog(
@@ -214,11 +213,22 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
             }
         )
     }
+    if (showShareUnavailable) {
+        AlertDialog(
+            onDismissRequest = { showShareUnavailable = false },
+            title = { Text("Hotspot required") },
+            text = { Text("Connect to a hotspot first.") },
+            confirmButton = {
+                TextButton(onClick = { showShareUnavailable = false }) { Text("OK") }
+            }
+        )
+    }
     LaunchedEffect(state.recoveryBase) {
         if (state.recoveryBase != null) Toast.makeText(controller.appContext, "DVR recording recovery is required.", Toast.LENGTH_LONG).show()
     }
     var album by rememberSaveable { mutableStateOf<MediaKind?>(null) }
     var savedOpen by rememberSaveable { mutableStateOf(false) }
+    var shareOpen by rememberSaveable { mutableStateOf(false) }
     var editMode by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var fullScreenSaved by remember { mutableStateOf<SavedMedia?>(null) }
@@ -246,6 +256,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     fun leaveDetail() {
         album = null
         savedOpen = false
+        shareOpen = false
         editMode = false
         selected = emptyList()
     }
@@ -253,8 +264,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
         controller.enterDvrBrowsingMode()
         album = kind
         savedOpen = false
+        shareOpen = false
         editMode = false
         selected = emptyList()
+    }
+    LaunchedEffect(shareOpen) {
+        if (!shareOpen && state.phoneServerUrl != null) controller.stopPhoneServer()
     }
 
     Scaffold(containerColor = Color(0xFF121212), bottomBar = {
@@ -280,11 +295,6 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 } else if (inDetail) {
                     Text("${selection.size} selected", Modifier.weight(1f), color = Color(0xFFEAF1F7), fontWeight = FontWeight.SemiBold)
                     if (local) {
-                        Button(onClick = onPhoneServer, enabled = state.saved.isNotEmpty() && !state.busy,
-                            modifier = Modifier.heightIn(min = 52.dp)) {
-                            Icon(Icons.Default.QrCode2, contentDescription = "Phone download")
-                            Spacer(Modifier.width(6.dp)); Text("Phone")
-                        }
                         Button(onClick = { onUsb(state.saved.filter { it.key in selection }) },
                             enabled = selection.isNotEmpty() && state.usbConnected && !state.busy,
                             modifier = Modifier.heightIn(min = 52.dp)) {
@@ -323,7 +333,7 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
             GalleryHeader(
-                title = if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery+",
+                title = if (shareOpen) "Share" else if (savedOpen) "Saved" else currentAlbum?.galleryTitle ?: "Gallery+",
                 inDetail = inDetail,
                 editMode = editMode,
                 busy = state.busy,
@@ -338,10 +348,20 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
                 }, onSaved = {
                     album = null
                     savedOpen = true
+                    shareOpen = false
                     editMode = false
                     selected = emptyList()
+                }, shareSelected = shareOpen, shareAvailable = true, onShare = {
+                    album = null
+                    savedOpen = false
+                    shareOpen = true
+                    editMode = false
+                    selected = emptyList()
+                    if (state.phoneServerUrl == null) onPhoneServer()
                 })
-                if (inDetail) {
+                if (shareOpen) {
+                    SharePane(url = state.phoneServerUrl, latestSaved = state.saved.firstOrNull(), onTailcatSend = controller::sendLatestSavedViaTailcat)
+                } else if (inDetail) {
                     DetailGrid(
                         kind = currentAlbum,
                         local = local,
@@ -386,25 +406,78 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
 }
 
 @Composable
-private fun PhoneServerDialog(url: String, onDismiss: () -> Unit) {
-    val qr = remember(url) { createQrBitmap(url, 720) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Send to phone") },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                qr?.let {
-                    Image(bitmap = it.asImageBitmap(), contentDescription = "Scan to download Gallery+ files",
-                        modifier = Modifier.size(280.dp), contentScale = ContentScale.FillBounds)
+private fun SharePane(url: String?, latestSaved: SavedMedia?, onTailcatSend: (String) -> Unit) {
+    val qr = remember(url) { url?.let { createQrBitmap(it, 720) } }
+    val tailcatUrl = "https://tailscale.github.io/tailcat/?mode=listen"
+    val tailcatQr = remember { createQrBitmap(tailcatUrl, 720) }
+    var tailcatAddr by rememberSaveable { mutableStateOf("") }
+    Column(
+        Modifier.fillMaxSize().padding(start = 31.dp, top = 31.dp, end = 31.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text("Share files", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Normal)
+        Spacer(Modifier.height(20.dp))
+        Text("Use the local web share when your phone can reach the vehicle. Use Tailcat as an experimental no-account transfer.",
+            color = Color(0xFFB8B8B8), fontSize = 22.sp)
+        Spacer(Modifier.height(28.dp))
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(42.dp)) {
+            Column(Modifier.widthIn(max = 560.dp)) {
+                Text("Local web share", color = Color.White, fontSize = 28.sp)
+                Spacer(Modifier.height(14.dp))
+                Surface(color = Color.White, shape = RoundedCornerShape(0.dp), modifier = Modifier.size(260.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (qr != null) Image(
+                            bitmap = qr.asImageBitmap(),
+                            contentDescription = "Scan to download Gallery+ files",
+                            modifier = Modifier.fillMaxSize().padding(12.dp),
+                            contentScale = ContentScale.FillBounds
+                        ) else Text("No address", color = Color.Black, fontSize = 24.sp)
+                    }
                 }
-                Spacer(Modifier.height(12.dp))
-                Text("Connect your phone to the vehicle hotspot, then scan this QR code.", color = Color.White)
-                Spacer(Modifier.height(8.dp))
-                Text(url, color = Color(0xFFB8B8B8), fontSize = 12.sp)
+                Spacer(Modifier.height(14.dp))
+                Text(url ?: "No reachable phone address found yet.", color = Color(0xFFA3F0D5), fontSize = 18.sp)
+                Text("The server stops automatically when you leave this tab.",
+                    color = Color(0xFF8E99A3), fontSize = 16.sp)
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Stop server") } }
-    )
+            Column(Modifier.widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Tailcat experiment", color = Color.White, fontSize = 28.sp)
+                Text("No Tailscale account is required. Traffic uses Tailcat's browser relay path, so large videos can be slow.",
+                    color = Color(0xFFB8B8B8), fontSize = 18.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = Color.White, shape = RoundedCornerShape(0.dp), modifier = Modifier.size(220.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (tailcatQr != null) Image(
+                                bitmap = tailcatQr.asImageBitmap(),
+                                contentDescription = "Open Tailcat receiver on iPhone",
+                                modifier = Modifier.fillMaxSize().padding(10.dp),
+                                contentScale = ContentScale.FillBounds
+                            ) else Text("Tailcat", color = Color.Black, fontSize = 22.sp)
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("1. Scan this QR on iPhone.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
+                        Text("2. Copy the tc... listener address.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
+                        Text("3. Enter it here and send the latest Saved file.", color = Color(0xFFEAF1F7), fontSize = 17.sp)
+                    }
+                }
+                OutlinedTextField(
+                    value = tailcatAddr,
+                    onValueChange = { tailcatAddr = it.trim() },
+                    label = { Text("iPhone Tailcat address") },
+                    placeholder = { Text("tc…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("File: ${latestSaved?.name ?: "No Saved files"}", color = Color(0xFFA3F0D5), fontSize = 18.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Button(
+                    onClick = { onTailcatSend(tailcatAddr) },
+                    enabled = latestSaved != null && tailcatAddr.startsWith("tc"),
+                    modifier = Modifier.heightIn(min = 52.dp)
+                ) { Text("Send latest Saved file") }
+            }
+        }
+    }
 }
 
 private fun createQrBitmap(value: String, size: Int): Bitmap? = runCatching {
@@ -464,40 +537,54 @@ private fun GalleryHeader(title: String, inDetail: Boolean, editMode: Boolean,
 }
 
 @Composable
-private fun GallerySidebar(savedSelected: Boolean, onAlbums: () -> Unit, onSaved: () -> Unit) {
+private fun GallerySidebar(savedSelected: Boolean, onAlbums: () -> Unit, onSaved: () -> Unit,
+                           shareSelected: Boolean, shareAvailable: Boolean, onShare: () -> Unit) {
     Column(Modifier.width(244.dp).fillMaxHeight().background(Color(0xFF181818)).padding(top = 43.dp)) {
-        SidebarItem(SidebarGlyph.Albums, "Albums", selected = !savedSelected, onClick = onAlbums)
+        SidebarItem(SidebarGlyph.Albums, "Albums", selected = !savedSelected && !shareSelected, onClick = onAlbums)
         SidebarItem(SidebarGlyph.Saved, "Saved", selected = savedSelected, onClick = onSaved)
+        SidebarItem(SidebarGlyph.Share, "Share", selected = shareSelected, enabled = shareAvailable, onClick = onShare)
     }
 }
 
 @Composable
-private fun SidebarItem(icon: SidebarGlyph, label: String, selected: Boolean, onClick: () -> Unit) {
-    val color = if (selected) Color(0xFFFF7A00) else Color(0xFFB8B8B8)
+private fun SidebarItem(icon: SidebarGlyph, label: String, selected: Boolean, enabled: Boolean = true,
+                        onClick: () -> Unit) {
+    val color = when {
+        selected -> Color(0xFFFF7A00)
+        enabled -> Color(0xFFB8B8B8)
+        else -> Color(0xFF5E666E)
+    }
     Column(
         Modifier.fillMaxWidth().height(145.dp).clickable(onClick = onClick).padding(start = 31.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        SidebarGlyphIcon(icon, color)
+        Box(Modifier.width(70.dp), contentAlignment = Alignment.CenterStart) {
+            SidebarGlyphIcon(icon, color)
+        }
         Text(label, color = color, fontSize = 34.sp)
     }
 }
 
-private enum class SidebarGlyph { Albums, Saved }
+private enum class SidebarGlyph { Albums, Saved, Share }
 
 @Composable
 private fun SidebarGlyphIcon(glyph: SidebarGlyph, color: Color) {
-    if (glyph == SidebarGlyph.Albums) {
-        Icon(
+    when (glyph) {
+        SidebarGlyph.Albums -> Icon(
             painter = painterResource(R.drawable.ic_oem_albums),
             contentDescription = "Albums",
             tint = color,
             modifier = Modifier.size(48.dp)
         )
-    } else {
-        Icon(
+        SidebarGlyph.Saved -> Icon(
             painter = painterResource(R.drawable.ic_chrome_download),
             contentDescription = "Saved",
+            tint = color,
+            modifier = Modifier.size(48.dp)
+        )
+        SidebarGlyph.Share -> Icon(
+            Icons.Default.Wifi,
+            contentDescription = "Share",
             tint = color,
             modifier = Modifier.size(48.dp)
         )
@@ -619,7 +706,7 @@ private fun DvrTile(item: DvrMedia, thumbnailPath: String?, selected: Boolean, e
             if (!editMode && canPreview) Surface(
                 color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
                 modifier = Modifier.align(Alignment.Center).size(56.dp)
-            ) { Box(contentAlignment = Alignment.Center) { Text("▶", color = Color.White, fontSize = 28.sp) } }
+            ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(36.dp)) } }
         }
         Text(item.displayRange, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             lineHeight = 28.sp, modifier = Modifier.padding(top = 8.dp), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
@@ -642,8 +729,14 @@ private fun SavedTile(item: SavedMedia, selected: Boolean, editMode: Boolean, on
             savedThumbnail(context, item)?.asImageBitmap()
         }
     }
+    val canPlay = isSavedVideo(item)
     Column(Modifier.combinedClickable(onClick = { if (editMode) onToggle() else onOpen() }, onLongClick = onLongPress)) {
-        SelectableThumbnail(path = null, selected = selected, thumbnail = thumbnail)
+        SelectableThumbnail(path = null, selected = selected, thumbnail = thumbnail) {
+            if (!editMode && canPlay) Surface(
+                color = Color(0x99000000), shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.align(Alignment.Center).size(56.dp)
+            ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(36.dp)) } }
+        }
         Text(item.name, fontSize = 22.sp, color = if (selected) Color(0xFFFF7A00) else Color.White,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
@@ -672,9 +765,12 @@ private fun SelectableThumbnail(path: String?, selected: Boolean,
     }
 }
 
-private fun savedThumbnail(context: android.content.Context, item: SavedMedia): android.graphics.Bitmap? {
-    val isVideo = item.mime.startsWith("video/") || item.name.substringAfterLast('.', "").lowercase() in
+private fun isSavedVideo(item: SavedMedia): Boolean =
+    item.mime.startsWith("video/") || item.name.substringAfterLast('.', "").lowercase() in
         setOf("mp4", "m4v", "mov", "ts", "avi")
+
+private fun savedThumbnail(context: android.content.Context, item: SavedMedia): android.graphics.Bitmap? {
+    val isVideo = isSavedVideo(item)
     if (!isVideo) {
         return try {
             item.file?.let { BitmapFactory.decodeFile(it.absolutePath) }

@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.IOException
+import com.polestar.tailcat.tailcatbridge.Progress
+import com.polestar.tailcat.tailcatbridge.Tailcatbridge
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -50,7 +52,9 @@ data class ExportState(
     val recoveryBase: String? = null,
     val exportTree: Uri? = null,
     val usbConnected: Boolean = false,
-    val phoneServerUrl: String? = null
+    val phoneShareAvailable: Boolean = true,
+    val phoneServerUrl: String? = null,
+    val phoneShareDiagnostics: List<String> = emptyList()
 )
 
 class ExporterApplication : Application() {
@@ -88,25 +92,23 @@ class ExportController(private val app: Application) {
     private val thumbnailSlots = Semaphore(20, true)
     private val phoneDvrLock = Any()
     private val phoneServer = PhoneFileServer(
+        context = app,
         files = { state.value.saved },
         open = ::openSavedInput,
-        dvrFiles = {
-            loadDvrForPhone()
-        },
-        openDvr = { item, _ ->
+        dvrFiles = { loadDvrForPhone() },
+        openDvr = { item, start ->
             val connection = DvrApi.connection(item.url)
-            // The DVR relay currently opens one sequential stream and skips locally.
-            // This avoids relying on vehicle-specific Range behavior.
-            if (connection.responseCode != 200) DvrApi.requireOk(connection)
+            if (start > 0L) connection.setRequestProperty("Range", "bytes=$start-")
+            if (start > 0L) {
+                if (connection.responseCode != 206) DvrApi.requireOk(connection)
+            } else if (connection.responseCode != 200) DvrApi.requireOk(connection)
             connection.inputStream
         },
         savedThumbnail = ::savedThumbnailForPhone,
-        dvrThumbnail = { item ->
-            runCatching {
-                thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())?.readBytes()
-                    ?: dvrPlaceholderThumbnail(item)
-            }.getOrNull()
-        }
+        dvrThumbnail = { item -> runCatching {
+            thumbnailStore.fetch(DvrApi(state.value.base), item, StopToken())?.readBytes()
+                ?: dvrPlaceholderThumbnail(item)
+        }.getOrNull() }
     )
 
     init {
@@ -123,52 +125,144 @@ class ExportController(private val app: Application) {
         }
     }
 
+    private fun loadDvrForPhone(): List<DvrMedia> = synchronized(phoneDvrLock) {
+        fun cached() = state.value.pages.values.flatMap { it.entries }
+            .distinctBy { it.key }
+        val cached = cached()
+        if (cached.isNotEmpty()) return@synchronized cached
+        val api = DvrApi(state.value.base)
+        try {
+            val status = retryDvr("status") { api.status() }
+            if (!status.usable) throw IOException("DVR storage is unavailable.")
+            if (status.recording != "in-file-list") retryDvr("enter file-list mode") { api.setMode("enter-file-list") }
+            retryDvr("directories") { api.directories() }.flatMap { directory ->
+                try { retryDvr("${directory.kind.api} files") { api.files(directory, 0) } }
+                catch (_: IOException) { emptyList() }
+            }
+        } catch (error: IOException) {
+            throw error
+        }
+    }
+
+    private fun <T> retryDvr(label: String, block: () -> T): T {
+        var last: IOException? = null
+        repeat(3) { attempt ->
+            try { return block() } catch (error: IOException) {
+                last = error
+                if (!error.isTransientDvrRead() || attempt == 2) throw error
+                Thread.sleep(250L * (attempt + 1))
+            }
+        }
+        throw last ?: IOException("DVR request failed: $label")
+    }
+
+    private fun IOException.isTransientDvrRead(): Boolean {
+        val messages = mutableListOf<String>()
+        var current: Throwable? = this
+        while (current != null) {
+            messages += current.message.orEmpty()
+            current = current.cause
+        }
+        val text = messages.joinToString(" ").lowercase()
+        return "unexpected end of stream" in text || "connection reset" in text ||
+            "socket closed" in text || "timeout" in text
+    }
+
+    private fun dvrPlaceholderThumbnail(item: DvrMedia): ByteArray {
+        val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap); canvas.drawColor(Color.rgb(38, 38, 38))
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 122, 0) }
+        canvas.drawCircle(320f, 180f, 58f, paint)
+        paint.color = Color.rgb(38, 38, 38)
+        canvas.drawPath(android.graphics.Path().apply {
+            moveTo(305f, 148f); lineTo(305f, 212f); lineTo(354f, 180f); close()
+        }, paint)
+        paint.color = Color.WHITE; paint.textSize = 22f; paint.textAlign = Paint.Align.CENTER
+        canvas.drawText(item.kind.label.uppercase(), 320f, 302f, paint)
+        return ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output); bitmap.recycle(); output.toByteArray()
+        }
+    }
+
     /** Keep the DVR in file-list mode for the lifetime of the Gallery+ session. */
     fun startAppHeartbeat() = enterDvrBrowsingMode()
 
     fun message(value: String) { mutable.update { it.copy(message = value) } }
 
     fun startPhoneServer() {
-        if (state.value.saved.isEmpty()) {
-            message("There are no saved files to send.")
-            return
-        }
+        val diagnostics = phoneServer.diagnostics()
         try {
             val url = phoneServer.start()
-            mutable.update { it.copy(phoneServerUrl = url, message = "Scan the QR code with your phone.") }
+            val localTest = url.substringAfterLast(':').substringBefore('/').toIntOrNull()?.let { port ->
+                listOf("vehicle local test: http://127.0.0.1:$port/")
+            }.orEmpty()
+            mutable.update { it.copy(phoneServerUrl = url, phoneShareDiagnostics = localTest + diagnostics, message = "Scan the QR code with your phone.") }
         } catch (e: Exception) {
-            reportError("Unable to start phone file server: ${e.message ?: "No Wi-Fi connection."}")
+            mutable.update { it.copy(phoneServerUrl = null, phoneShareDiagnostics = diagnostics, message = "No reachable phone address found.") }
         }
     }
+    fun sendLatestSavedViaTailcat(addr: String) {
+        val cleanAddr = addr.trim()
+        if (cleanAddr.isBlank()) { message("Enter the iPhone Tailcat address first."); return }
+        val item = state.value.saved.firstOrNull()
+        if (item == null) { message("Download a Saved file first."); return }
+        transfer("Sending with Tailcat") {
+            val source = prepareTailcatSource(item)
+            Tailcatbridge.sendFile(cleanAddr, source.absolutePath, object : Progress {
+                override fun onProgress(sent: Long, total: Long) {
+                    progress(1, 1, item.name, sent, total)
+                }
+            })
+            "Tailcat transfer complete: ${item.name}"
+        }
+    }
+
+    private fun prepareTailcatSource(item: SavedMedia): File {
+        item.file?.takeIf { it.isFile }?.let { return it }
+        val dir = File(app.cacheDir, "tailcat-share").also { it.mkdirs() }
+        val safeName = item.name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "galleryplus.bin" }
+        val target = File(dir, safeName)
+        openSavedInput(item).use { input -> target.outputStream().use { output ->
+            StreamCopy.copy(input, output, item.size, StopToken()) { done, total ->
+                progress(1, 1, "Preparing ${item.name}", done, total)
+            }
+            output.flush()
+        } }
+        return target
+    }
+
 
     fun stopPhoneServer() {
         phoneServer.stop()
         mutable.update { it.copy(phoneServerUrl = null) }
     }
 
-    /** Loads DVR pages for the phone web UI independently of the in-car Compose list. */
-    private fun loadDvrForPhone(): List<DvrMedia> = synchronized(phoneDvrLock) {
-        val api = DvrApi(state.value.base)
-        val status = api.status()
-        if (!status.usable) throw IOException("DVR storage is unavailable.")
-        if (status.recording != "in-file-list") api.setMode("enter-file-list")
-        api.directories().flatMap { directory ->
-            val all = mutableListOf<DvrMedia>()
-            var start = 0
-            var guard = 0
-            do {
-                val batch = api.files(directory, start)
-                all += batch
-                start += batch.size
-                guard++
-            } while (batch.isNotEmpty() && (directory.count <= 0 || all.size < directory.count) && guard < 100)
-            all
-        }
-    }
-
     private fun savedThumbnailForPhone(item: SavedMedia): ByteArray? = runCatching {
         if (item.mime.startsWith("image/")) {
-            openSavedInput(item).use { input -> input.readBytes().take(5 * 1024 * 1024).toByteArray() }
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            openSavedInput(item).use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+            val options = android.graphics.BitmapFactory.Options().apply { inSampleSize = 1 }
+            while (maxOf(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 1280) {
+                options.inSampleSize *= 2
+            }
+            val bitmap = openSavedInput(item).use { android.graphics.BitmapFactory.decodeStream(it, null, options) }
+                ?: return@runCatching openSavedInput(item).use { input ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (output.size() + count > 5 * 1024 * 1024) return@use null
+                        output.write(buffer, 0, count)
+                    }
+                    output.toByteArray()
+                }
+            try {
+                ByteArrayOutputStream().use { output ->
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, output)
+                    output.toByteArray()
+                }
+            } finally { bitmap.recycle() }
         } else {
             val retriever = MediaMetadataRetriever()
             try {
@@ -185,36 +279,15 @@ class ExportController(private val app: Application) {
         }
     }.getOrNull()
 
-    /** Keep a failed DVR thumbnail from leaving an empty card in the phone web UI. */
-    private fun dvrPlaceholderThumbnail(item: DvrMedia): ByteArray {
-        val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(Color.rgb(38, 38, 38))
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(255, 122, 0)
-            style = Paint.Style.FILL
-        }
-        canvas.drawCircle(320f, 180f, 58f, paint)
-        paint.color = Color.rgb(38, 38, 38)
-        canvas.drawPath(android.graphics.Path().apply {
-            moveTo(305f, 148f); lineTo(305f, 212f); lineTo(354f, 180f); close()
-        }, paint)
-        paint.color = Color.WHITE
-        paint.textSize = 22f
-        paint.textAlign = Paint.Align.CENTER
-        canvas.drawText(item.kind.label.uppercase(), 320f, 302f, paint)
-        return ByteArrayOutputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
-            bitmap.recycle()
-            output.toByteArray()
-        }
-    }
-
     fun refreshUsbState() {
         val connected = app.getSystemService(StorageManager::class.java).storageVolumes.any {
             it.isRemovable && it.state == Environment.MEDIA_MOUNTED && it.directory != null
         }
-        mutable.update { if (it.usbConnected == connected) it else it.copy(usbConnected = connected) }
+        val diagnostics = phoneServer.diagnostics()
+        mutable.update {
+            if (it.usbConnected == connected && it.phoneShareAvailable && it.phoneShareDiagnostics == diagnostics) it
+            else it.copy(usbConnected = connected, phoneShareAvailable = true, phoneShareDiagnostics = diagnostics)
+        }
     }
 
     fun shouldPromptInitialFolder(): Boolean =

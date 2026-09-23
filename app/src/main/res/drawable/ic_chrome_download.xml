@@ -2,6 +2,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp" android:height="48dp"
     android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M22,5h4v22.3l7.2,-7.2 2.8,2.8L24,35 12,22.9l2.8,-2.8 7.2,7.2V5Z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M7,38h34v4H7z" />
+    <group android:pivotX="24" android:pivotY="24" android:scaleX="1.32" android:scaleY="1.18">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M22,5h4v22.3l7.2,-7.2 2.8,2.8L24,35 12,22.9l2.8,-2.8 7.2,7.2V5Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M7,38h34v4H7z" />
+    </group>
 </vector>
