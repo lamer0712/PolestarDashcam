@@ -12,7 +12,7 @@ This branch adds an experimental Tailcat path for moving one Saved file from Gal
 6. The phone browser creates its own receive listener, then sends that receive `tc...` address back to the vehicle over the vehicle Tailcat control listener.
 7. Gallery+ automatically sends the selected file. If multiple files are selected, Gallery+ sends one ZIP archive.
 
-Gallery+ now prefers the hosted receiver page at `https://unghui.github.io/PolestarDashcamExporter/tailcat/` when a vehicle-side `car=...` Tailcat control address is available. The app-local `/tailcat/` page, local `/tailcat-register` path, and manual `tc...` address entry remain available as fallbacks. Selected Saved media is sent through the embedded Go Tailcat bridge (`tailcatbridge.aar`).
+Gallery+ now prefers the hosted receiver page at `https://lamer0712.github.io/PolestarDashcam/tailcat/` when a vehicle-side `car=...` Tailcat control address is available. The app-local `/tailcat/` page, local `/tailcat-register` path, and manual `tc...` address entry remain available as fallbacks. Selected Saved media is sent through the embedded Go Tailcat bridge (`tailcatbridge.aar`).
 
 ## Current limitations
 

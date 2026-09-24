@@ -5,5 +5,5 @@ This static page is opened from the Gallery+ QR code. It creates a browser Tailc
 Expected URL shape:
 
 ```text
-https://unghui.github.io/PolestarDashcamExporter/tailcat/?file=name.mp4&car=tc...
+https://lamer0712.github.io/PolestarDashcam/tailcat/?file=name.mp4&car=tc...
 ```

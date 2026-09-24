@@ -75,7 +75,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-private const val HOSTED_TAILCAT_RECEIVER_URL = "https://unghui.github.io/PolestarDashcamExporter/tailcat/"
+private const val HOSTED_TAILCAT_RECEIVER_URL = "https://lamer0712.github.io/PolestarDashcam/tailcat/"
 
 class MainActivity : ComponentActivity() {
     private val controller get() = (application as ExporterApplication).controller
