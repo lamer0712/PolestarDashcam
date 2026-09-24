@@ -425,12 +425,14 @@ private fun TailcatSavedDialog(carTailcatAddr: String?, items: List<SavedMedia>,
         }
     }
     val tailcatUrl = remember(fileName, carTailcatAddr) {
-        buildString {
-            append(HOSTED_TAILCAT_RECEIVER_URL).append("?file=").append(Uri.encode(fileName))
-            carTailcatAddr?.let { append("&car=").append(Uri.encode(it)) }
+        carTailcatAddr?.let {
+            buildString {
+                append(HOSTED_TAILCAT_RECEIVER_URL).append("?file=").append(Uri.encode(fileName))
+                append("&car=").append(Uri.encode(it))
+            }
         }
     }
-    val qr = remember(tailcatUrl) { createQrBitmap(tailcatUrl, 720) }
+    val qr = remember(tailcatUrl) { tailcatUrl?.let { createQrBitmap(it, 720) } }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Share") },
@@ -440,31 +442,42 @@ private fun TailcatSavedDialog(carTailcatAddr: String?, items: List<SavedMedia>,
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.widthIn(min = 360.dp, max = 520.dp)
             ) {
-                Text(
-                    "Scan this QR with your phone to receive the selected file.",
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                )
-                Surface(color = Color.White, modifier = Modifier.size(300.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (qr != null) {
-                            Image(
-                                bitmap = qr.asImageBitmap(),
-                                contentDescription = "Share QR code",
-                                modifier = Modifier.fillMaxSize().padding(12.dp),
-                                contentScale = ContentScale.FillBounds
-                            )
-                        } else {
-                            Text("QR unavailable", color = Color.Black, fontSize = 18.sp)
+                if (tailcatUrl == null) {
+                    Text(
+                        "Preparing QR…",
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    CircularProgressIndicator(color = Color(0xFFFF7A00))
+                } else {
+                    Text(
+                        "Scan this QR with your phone to receive the selected file.",
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Surface(color = Color.White, modifier = Modifier.size(300.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (qr != null) {
+                                Image(
+                                    bitmap = qr.asImageBitmap(),
+                                    contentDescription = "Share QR code",
+                                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                                    contentScale = ContentScale.FillBounds
+                                )
+                            } else {
+                                Text("QR unavailable", color = Color.Black, fontSize = 18.sp)
+                            }
                         }
                     }
+                    Text(
+                        "이 창을 닫으면 전송이 취소 됩니다.",
+                        color = Color(0xFFFFB4AB),
+                        textAlign = TextAlign.Center,
+                        fontSize = 16.sp
+                    )
                 }
-                Text(
-                    "이 창을 닫으면 전송이 취소 됩니다.",
-                    color = Color(0xFFFFB4AB),
-                    textAlign = TextAlign.Center,
-                    fontSize = 16.sp
-                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
