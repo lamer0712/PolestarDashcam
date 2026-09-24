@@ -392,6 +392,12 @@ private fun ExportScreen(controller: ExportController, onDownload: (List<DvrMedi
             }
         }
     }
+    LaunchedEffect(showTailcatSavedDialog, state.message) {
+        if (showTailcatSavedDialog && state.message.startsWith("Tailcat transfer complete:")) {
+            showTailcatSavedDialog = false
+            controller.stopPhoneServer()
+        }
+    }
     if (showTailcatSavedDialog) {
         val items = state.saved.filter { it.key in tailcatSelectionKeys }
         TailcatSavedDialog(
