@@ -192,7 +192,7 @@ async function onConnection(conn) {
       received += chunk.length;
       lastDataAt = Date.now();
       setProgress(received, total);
-      setStatus(`Receiving… ${Math.floor(100*received/total)}%`);
+      setStatus(`Receiving… ${(100 * received / total).toFixed(1)}%`);
       if (received - checkpointAt >= checkpointBytes && received < total) {
         await store.flush();
         saveMeta(received, total, false);
