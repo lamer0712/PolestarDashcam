@@ -6,7 +6,7 @@
 <title>Gallery+ Share</title>
 <style>
 :root{color-scheme:dark;--bg:#121212;--panel:#1b1b1b;--line:#343434;--muted:#aeb4b9;--orange:#ff7a00;--ok:#a3f0d5}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:22px;line-height:1.35}.wrap{max-width:560px;margin:0 auto}.logo{color:var(--orange);font-weight:700;font-size:24px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:14px 0;text-align:center}h1{font-size:28px;margin:0 0 10px}p{color:var(--muted);margin:8px 0}.status{color:var(--ok);font-size:19px;font-weight:650;word-break:keep-all}.bar{height:12px;background:#333;border-radius:999px;overflow:hidden;margin-top:18px}.fill{height:100%;width:0;background:var(--orange);transition:width .15s}.download{display:inline-block;margin-top:16px;background:var(--orange);color:#111;text-decoration:none;border-radius:8px;padding:13px 18px;font-weight:750}.small{font-size:13px}.hidden{display:none}.err{color:#ffb4ab}</style>
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:22px;line-height:1.35}.wrap{max-width:560px;margin:0 auto}.logo{color:var(--orange);font-weight:700;font-size:24px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:14px 0;text-align:center}h1{font-size:28px;margin:0 0 10px}p{color:var(--muted);margin:8px 0}.status{color:var(--ok);font-size:19px;font-weight:650;word-break:keep-all}.bar{height:12px;background:#333;border-radius:999px;overflow:hidden;margin-top:18px}.fill{height:100%;width:0;background:var(--orange);transition:width .15s}.download{display:inline-block;margin-top:16px;background:var(--orange);color:#111;text-decoration:none;border-radius:8px;padding:13px 18px;font-weight:750}.wake{margin-top:14px;border:1px solid var(--orange);background:transparent;color:var(--orange);border-radius:8px;padding:10px 15px;font-weight:700}.small{font-size:13px}.hidden{display:none}.err{color:#ffb4ab}</style>
 </head>
 <body><main class="wrap">
 <div class="logo">Gallery+</div>
@@ -14,6 +14,7 @@
 <h1>Receive file</h1>
 <p>You can return to this page if the screen turns off. The transfer will resume from the saved progress.</p>
 <p id="status" class="status">Preparing secure transfer…</p>
+<button id="wake" class="wake" type="button" hidden>Keep screen on</button>
 <div class="bar"><div id="fill" class="fill"></div></div>
 </section>
 <section id="result" class="card hidden">
@@ -22,5 +23,5 @@
 </section>
 </main>
 <script src="wasm_exec.js"></script>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body></html>

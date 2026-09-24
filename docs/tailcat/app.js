@@ -26,12 +26,31 @@ async function fetchWasm() {
 
 let wakeLock = null;
 async function keepScreenAwake() {
+  const button = $("wake");
+  if (!("wakeLock" in navigator)) {
+    button.hidden = true;
+    return false;
+  }
+  if (wakeLock && !wakeLock.released) {
+    button.hidden = true;
+    return true;
+  }
   try {
-    if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock = await navigator.wakeLock.request("screen");
+    button.hidden = true;
+    wakeLock.addEventListener("release", () => {
+      wakeLock = null;
+      if (document.visibilityState === "visible" && !complete) button.hidden = false;
+    }, {once:true});
+    return true;
   } catch (_) {
     wakeLock = null;
+    if (document.visibilityState === "visible") button.hidden = false;
+    return false;
   }
 }
+
+$("wake").addEventListener("click", keepScreenAwake);
 
 const ready = new Promise((resolve) => { globalThis.onTailcatReady = resolve; });
 const go = new Go();
@@ -118,6 +137,8 @@ async function showCompleted(total) {
   setStatus("Transfer complete.");
   setProgress(total, total);
   complete = true;
+  if (wakeLock && !wakeLock.released) await wakeLock.release();
+  $("wake").hidden = true;
   return true;
 }
 
