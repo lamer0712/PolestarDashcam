@@ -459,6 +459,12 @@ private fun TailcatSavedDialog(carTailcatAddr: String?, items: List<SavedMedia>,
                         }
                     }
                 }
+                Text(
+                    "이 창을 닫으면 전송이 취소 됩니다.",
+                    color = Color(0xFFFFB4AB),
+                    textAlign = TextAlign.Center,
+                    fontSize = 16.sp
+                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
