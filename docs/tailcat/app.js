@@ -1,4 +1,3 @@
-const CHUNK = 64 * 1024;
 const params = new URLSearchParams(location.search);
 const fileName = params.get("file") || "galleryplus-download.bin";
 const carAddr = params.get("car") || "";
@@ -15,7 +14,7 @@ async function fetchWasm() {
   const counted = gz.body.pipeThrough(new TransformStream({
     transform(chunk, controller) {
       loaded += chunk.byteLength;
-      setStatus(size > 0 ? `Loading Tailcat… ${Math.min(100, Math.floor(100*loaded/size))}%` : "Loading Tailcat…");
+      setStatus(size > 0 ? `Preparing… ${Math.min(100, Math.floor(100*loaded/size))}%` : "Preparing…");
       controller.enqueue(chunk);
     }
   })).pipeThrough(new DecompressionStream("gzip"));
@@ -24,34 +23,26 @@ async function fetchWasm() {
 
 const ready = new Promise((resolve) => { globalThis.onTailcatReady = resolve; });
 const go = new Go();
-WebAssembly.instantiateStreaming(fetchWasm(), go.importObject).then(({instance}) => go.run(instance)).catch(e => setStatus(String(e), true));
+WebAssembly.instantiateStreaming(fetchWasm(), go.importObject).then(({instance}) => go.run(instance)).catch(e => setStatus("Unable to prepare transfer.", true));
 await ready;
-setStatus("Starting secure receiver…");
+setStatus("Opening receiver…");
 
 async function registerAddress(addr) {
-  if (carAddr) {
-    setStatus("Sending receiver address to Gallery+ over Tailcat…");
-    const conn = await tailcatDial({addr: carAddr, port: 2, derpMapURL: canonicalDERPMapURL, verbose:false});
-    await conn.write(new TextEncoder().encode(addr));
-    await conn.closeWrite();
-    while ((await conn.read()) !== null) {}
-    conn.close();
-    return;
-  }
-  const res = await fetch("/tailcat-register", {method:"POST", headers:{"Content-Type":"text/plain"}, body:addr});
-  if (!res.ok) throw new Error(`register failed: ${res.status}`);
+  if (!carAddr) throw new Error("missing vehicle address");
+  const conn = await tailcatDial({addr: carAddr, port: 2, derpMapURL: canonicalDERPMapURL, verbose:false});
+  await conn.write(new TextEncoder().encode(addr));
+  await conn.closeWrite();
+  while ((await conn.read()) !== null) {}
+  conn.close();
 }
 
 async function start() {
   const ln = await tailcatListen({derpMapURL: canonicalDERPMapURL, privateKey:"", verbose:false, onConnection});
-  $("addr").textContent = ln.addr;
   try {
     await registerAddress(ln.addr);
-    setStatus("Connected. Waiting for Gallery+ to send the file…");
-  } catch (e) {
-    setStatus("Receiver is ready, but Gallery+ did not confirm registration.", true);
-    $("fallback").classList.remove("hidden");
-    $("copy").onclick = () => navigator.clipboard.writeText(ln.addr);
+    setStatus("Ready. Waiting for Gallery+…");
+  } catch (_) {
+    setStatus("Connection was not ready. Close this page and scan the QR again.", true);
   }
 }
 
@@ -63,8 +54,7 @@ async function onConnection(conn) {
     for (let chunk; (chunk = await conn.read()) !== null; ) {
       chunks.push(chunk);
       n += chunk.length;
-      setProgress(n, 0);
-      setStatus(`Receiving file… ${(n / (1<<20)).toFixed(1)} MB`);
+      setStatus(`Receiving… ${(n / (1<<20)).toFixed(1)} MB`);
     }
     conn.close();
     const blob = new Blob(chunks, {type:"application/octet-stream"});
@@ -76,10 +66,10 @@ async function onConnection(conn) {
     $("result").classList.remove("hidden");
     setStatus("Transfer complete.");
     setProgress(1,1);
-  } catch (e) {
+  } catch (_) {
     conn.close();
-    setStatus(`Receive failed: ${e.message || e}`, true);
+    setStatus("Receive failed. Please try again.", true);
   }
 }
 
-start().catch(e => setStatus(`Tailcat failed: ${e.message || e}`, true));
+start().catch(() => setStatus("Unable to start transfer. Please try again.", true));
