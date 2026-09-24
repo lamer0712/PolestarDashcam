@@ -9,8 +9,8 @@ android {
         applicationId = "com.polestar.dashcamexporter"
         minSdk = 30
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.4.66"
+        versionCode = 20
+        versionName = "0.4.92"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {

@@ -1,5 +1,6 @@
 # Changelog
 
+- 0.4.92: Tailcat 웹 수신을 4 MiB 단위로 브라우저의 영구 저장소에 체크포인트하고, 화면 꺼짐이나 앱 전환으로 연결이 끊기면 같은 QR 페이지에서 저장된 바이트부터 자동 재개합니다. 차량 앱은 휴대폰의 완료 확인을 받은 경우에만 전송 완료로 처리합니다.
 - 0.4.91: Saved 화면의 Share 기능을 Tailcat 기반 직접 전송 흐름으로 정리했습니다. QR 팝업은 실제 전송용 주소가 준비된 뒤에만 표시하고, 전송 완료 시 자동으로 닫힙니다. GitHub Pages receiver는 주소를 노출하지 않는 단순 수신 화면으로 바꿨습니다.
 - 0.4.90: Tailcat 버튼에서 Android Go bridge panic으로 앱이 종료되지 않도록 보호하고, QR을 항상 GitHub Pages receiver로 열도록 바꿨습니다. 차량 control 주소가 준비되지 않으면 폰 페이지의 `tc...` 주소를 차량에 수동 입력하는 fallback을 사용합니다.
 - 0.4.89: Tailcat receiver 페이지를 GitHub Pages 정적 사이트(`docs/tailcat`)로 분리했습니다. Saved 전송 QR은 차량 control `tc...` 주소가 있으면 `https://lamer0712.github.io/PolestarDashcam/tailcat/`를 사용해 폰이 차량 로컬 HTTP 서버를 열지 않아도 주소 교환을 시작할 수 있습니다.

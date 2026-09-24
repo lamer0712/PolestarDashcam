@@ -1,11 +1,13 @@
 package tailcatbridge
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -156,10 +158,45 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 		return err
 	}
 	defer conn.Close()
+	return sendFileContents(conn, f, st.Size(), progress, cancellation)
+}
+
+func sendFileContents(conn net.Conn, f *os.File, total int64, progress Progress, cancellation Cancellation) error {
+	reader := bufio.NewReaderSize(conn, 4096)
+	_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
+	request, err := reader.ReadString('\n')
+	if err != nil {
+		if isCancelled(cancellation) {
+			return fmt.Errorf("operation cancelled")
+		}
+		return fmt.Errorf("reading resume request: %w", err)
+	}
+	const requestPrefix = "GALLERYPLUS/1 RESUME "
+	if !strings.HasPrefix(request, requestPrefix) {
+		return fmt.Errorf("unsupported receiver protocol")
+	}
+	requestedOffset, err := strconv.ParseInt(strings.TrimSpace(strings.TrimPrefix(request, requestPrefix)), 10, 64)
+	if err != nil || requestedOffset < 0 {
+		return fmt.Errorf("invalid resume offset")
+	}
+	resumeOffset := requestedOffset
+	if resumeOffset > total {
+		resumeOffset = total
+	}
+	if _, err := f.Seek(resumeOffset, io.SeekStart); err != nil {
+		return fmt.Errorf("seeking source file: %w", err)
+	}
+	_ = conn.SetReadDeadline(time.Time{})
+	_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if _, err := io.WriteString(conn, fmt.Sprintf("GALLERYPLUS/1 FILE %d %d\n", total, resumeOffset)); err != nil {
+		return fmt.Errorf("writing file header: %w", err)
+	}
 
 	buf := make([]byte, 64*1024)
-	var sent int64
-	total := st.Size()
+	sent := resumeOffset
+	if progress != nil {
+		progress.OnProgress(sent, total)
+	}
 	for {
 		if err := checkCancelled(cancellation); err != nil {
 			return err
@@ -196,7 +233,15 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 	if cw, ok := conn.(interface{ CloseWrite() error }); ok {
 		_ = cw.CloseWrite()
 	}
-	_, _ = io.Copy(io.Discard, conn)
+	_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	ack, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("waiting for receiver confirmation: %w", err)
+	}
+	wantAck := fmt.Sprintf("GALLERYPLUS/1 OK %d", total)
+	if strings.TrimSpace(ack) != wantAck {
+		return fmt.Errorf("receiver did not confirm the complete file")
+	}
 	if progress != nil {
 		progress.OnProgress(total, total)
 	}

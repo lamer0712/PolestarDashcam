@@ -95,7 +95,6 @@ class ExportController(private val app: Application) {
     /** Limit thumbnail traffic so a long list does not open one DVR request per tile. */
     private val thumbnailSlots = Semaphore(20, true)
     private val phoneDvrLock = Any()
-    @Volatile private var lastTailcatAutoAddress: String? = null
     @Volatile private var pendingTailcatItems: List<SavedMedia> = emptyList()
     private val phoneServer = PhoneFileServer(
         context = app,
@@ -211,7 +210,6 @@ class ExportController(private val app: Application) {
     fun prepareTailcatSavedTransfer(items: List<SavedMedia>) {
         if (items.isEmpty()) { message("Select a Saved file first."); return }
         pendingTailcatItems = items
-        lastTailcatAutoAddress = null
         startPhoneServer()
         mutable.update { it.copy(tailcatControlAddr = null) }
         val label = if (items.size == 1) items.first().name else "${items.size} files"
@@ -236,8 +234,10 @@ class ExportController(private val app: Application) {
     }
 
     private fun handleTailcatAddress(addr: String) {
-        if (addr == lastTailcatAutoAddress) return
-        lastTailcatAutoAddress = addr
+        // The browser registers the same persistent Tailcat address again after
+        // a suspended tab wakes up. Ignore registrations only while a sender is
+        // already active; the next retry resumes from the browser's saved offset.
+        if (state.value.busy) return
         val items = pendingTailcatItems.ifEmpty { state.value.saved.firstOrNull()?.let { listOf(it) } ?: emptyList() }
         if (items.isEmpty()) { message("Select a Saved file first."); return }
         message("Tailcat receiver connected. Sending selected file.")
@@ -254,7 +254,7 @@ class ExportController(private val app: Application) {
         val cleanAddr = addr.trim()
         if (cleanAddr.isBlank()) { message("Enter the iPhone Tailcat address first."); return }
         if (items.isEmpty()) { message("Select a Saved file first."); return }
-        transfer("Sending with Tailcat") {
+        transfer("Sending with Tailcat") transferBlock@{
             val source = prepareTailcatSource(items)
             try {
                 Tailcatbridge.sendFileCancelable(cleanAddr, source.absolutePath, object : Progress {
@@ -266,7 +266,7 @@ class ExportController(private val app: Application) {
                 })
             } catch (e: Exception) {
                 if (stop.isCancelled()) throw UserCancelledException()
-                throw e
+                return@transferBlock "Transfer paused. Return to the phone page to resume."
             }
             stop.check()
             pendingTailcatItems = emptyList()
