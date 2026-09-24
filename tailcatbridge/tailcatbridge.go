@@ -129,15 +129,17 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 	cl.Logf = logger.Discard
 	defer cl.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stopDone := watchCancellation(ctx, cancel, cancellation)
 	defer stopDone()
 
+	connectCtx, connectCancel := context.WithTimeout(ctx, 60*time.Second)
+	defer connectCancel()
 	if err := checkCancelled(cancellation); err != nil {
 		return err
 	}
-	if err := pingUntil(ctx, cl); err != nil {
+	if err := pingUntil(connectCtx, cl); err != nil {
 		if isCancelled(cancellation) {
 			return fmt.Errorf("operation cancelled")
 		}
@@ -146,7 +148,7 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 	if err := checkCancelled(cancellation); err != nil {
 		return err
 	}
-	conn, err := cl.DialTCPPort(ctx, 1)
+	conn, err := cl.DialTCPPort(connectCtx, 1)
 	if err != nil {
 		if isCancelled(cancellation) {
 			return fmt.Errorf("operation cancelled")
@@ -164,7 +166,7 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 		}
 		n, readErr := f.Read(buf)
 		if n > 0 {
-			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 			wn, writeErr := conn.Write(buf[:n])
 			sent += int64(wn)
 			if progress != nil {
@@ -190,7 +192,7 @@ func SendFileCancelable(addr string, path string, progress Progress, cancellatio
 	if err := checkCancelled(cancellation); err != nil {
 		return err
 	}
-	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 	if cw, ok := conn.(interface{ CloseWrite() error }); ok {
 		_ = cw.CloseWrite()
 	}
