@@ -21,10 +21,27 @@ async function fetchWasm() {
   return new Response(counted, {headers:{"Content-Type":"application/wasm"}});
 }
 
+
+let wakeLock = null;
+async function keepScreenAwake() {
+  try {
+    if ("wakeLock" in navigator) {
+      wakeLock = await navigator.wakeLock.request("screen");
+    }
+  } catch (_) {
+    wakeLock = null;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") keepScreenAwake();
+});
+
 const ready = new Promise((resolve) => { globalThis.onTailcatReady = resolve; });
 const go = new Go();
 WebAssembly.instantiateStreaming(fetchWasm(), go.importObject).then(({instance}) => go.run(instance)).catch(e => setStatus("Unable to prepare transfer.", true));
 await ready;
+await keepScreenAwake();
 setStatus("Opening receiver…");
 
 async function registerAddress(addr) {
@@ -47,6 +64,7 @@ async function start() {
 }
 
 async function onConnection(conn) {
+  await keepScreenAwake();
   setStatus("Receiving file…");
   const chunks = [];
   let n = 0;

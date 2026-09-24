@@ -256,11 +256,20 @@ class ExportController(private val app: Application) {
         if (items.isEmpty()) { message("Select a Saved file first."); return }
         transfer("Sending with Tailcat") {
             val source = prepareTailcatSource(items)
-            Tailcatbridge.sendFile(cleanAddr, source.absolutePath, object : Progress {
-                override fun onProgress(sent: Long, total: Long) {
-                    progress(1, 1, source.name, sent, total)
-                }
-            })
+            try {
+                Tailcatbridge.sendFileCancelable(cleanAddr, source.absolutePath, object : Progress {
+                    override fun onProgress(sent: Long, total: Long) {
+                        stop.check()
+                        progress(1, 1, source.name, sent, total)
+                    }
+                }, object : com.polestar.tailcat.tailcatbridge.Cancellation {
+                    override fun isCancelled(): Boolean = stop.isCancelled()
+                })
+            } catch (e: Exception) {
+                if (stop.isCancelled()) throw UserCancelledException()
+                throw e
+            }
+            stop.check()
             pendingTailcatItems = emptyList()
             "Tailcat transfer complete: ${source.name}"
         }

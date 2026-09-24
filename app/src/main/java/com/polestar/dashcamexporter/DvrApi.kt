@@ -49,6 +49,7 @@ class UserCancelledException : IOException("Operation cancelled.")
 class StopToken {
     private val stopped = AtomicBoolean(false)
     fun cancel() { stopped.set(true) }
+    fun isCancelled(): Boolean = stopped.get()
     fun check() { if (stopped.get()) throw UserCancelledException() }
 }
 
