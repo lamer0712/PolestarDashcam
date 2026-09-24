@@ -259,7 +259,6 @@ class ExportController(private val app: Application) {
             try {
                 Tailcatbridge.sendFileCancelable(cleanAddr, source.absolutePath, object : Progress {
                     override fun onProgress(sent: Long, total: Long) {
-                        stop.check()
                         progress(1, 1, source.name, sent, total)
                     }
                 }, object : com.polestar.tailcat.tailcatbridge.Cancellation {
