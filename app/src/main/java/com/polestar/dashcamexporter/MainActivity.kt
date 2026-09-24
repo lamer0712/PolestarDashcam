@@ -443,13 +443,10 @@ private fun TailcatSavedDialog(url: String?, carTailcatAddr: String?, items: Lis
             else -> "GalleryPlus-${items.size}-files.zip"
         }
     }
-    val tailcatUrl = remember(url, fileName, carTailcatAddr) {
-        val base = if (carTailcatAddr != null) HOSTED_TAILCAT_RECEIVER_URL else url?.let { "${it}tailcat/" }
-        base?.let { receiver ->
-            buildString {
-                append(receiver).append("?file=").append(Uri.encode(fileName))
-                carTailcatAddr?.let { append("&car=").append(Uri.encode(it)) }
-            }
+    val tailcatUrl = remember(fileName, carTailcatAddr) {
+        buildString {
+            append(HOSTED_TAILCAT_RECEIVER_URL).append("?file=").append(Uri.encode(fileName))
+            carTailcatAddr?.let { append("&car=").append(Uri.encode(it)) }
         }
     }
     val qr = remember(tailcatUrl) { tailcatUrl?.let { createQrBitmap(it, 720) } }
@@ -473,8 +470,8 @@ private fun TailcatSavedDialog(url: String?, carTailcatAddr: String?, items: Lis
                     Text("Scan this QR on your phone. Keep the page open; Gallery+ sends the selected Saved file automatically.", color = Color.White)
                     Text(if (items.size == 1) "File: $fileName" else "Files: ${items.size} selected as $fileName",
                         color = Color(0xFFA3F0D5), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(tailcatUrl ?: "No local share address yet.", color = Color(0xFFB8B8B8), fontSize = 13.sp)
-                    Text(if (carTailcatAddr != null) "Receiver page: GitHub Pages · Address exchange: Tailcat" else "Receiver page: local fallback",
+                    Text(tailcatUrl, color = Color(0xFFB8B8B8), fontSize = 13.sp)
+                    Text(if (carTailcatAddr != null) "Receiver page: GitHub Pages · Address exchange: Tailcat" else "Receiver page: GitHub Pages · copy tc... from phone if automatic setup is not ready",
                         color = Color(0xFF8E99A3), fontSize = 13.sp)
                     Spacer(Modifier.height(6.dp))
                     Text("Manual fallback", color = Color.White, fontSize = 14.sp)

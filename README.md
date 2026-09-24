@@ -1,3 +1,4 @@
+- 0.4.90: Tailcat 버튼에서 Android Go bridge panic으로 앱이 종료되지 않도록 보호하고, QR을 항상 GitHub Pages receiver로 열도록 바꿨습니다. 차량 control 주소가 준비되지 않으면 폰 페이지의 `tc...` 주소를 차량에 수동 입력하는 fallback을 사용합니다.
 - 0.4.89: Tailcat receiver 페이지를 GitHub Pages 정적 사이트(`docs/tailcat`)로 분리했습니다. Saved 전송 QR은 차량 control `tc...` 주소가 있으면 `https://lamer0712.github.io/PolestarDashcam/tailcat/`를 사용해 폰이 차량 로컬 HTTP 서버를 열지 않아도 주소 교환을 시작할 수 있습니다.
 - 0.4.88: Tailcat 전송을 차량 control listener 방식으로 확장했습니다. Saved에서 선택 파일을 누르면 차량 앱이 먼저 `tc...` control 주소를 만들고 QR에 포함하며, 폰 브라우저는 자기 수신 주소를 Tailcat으로 차량에 되돌려 보낸 뒤 선택 파일을 받습니다. 로컬 `/tailcat-register`는 fallback으로 유지합니다.
 - 0.4.87: Saved 화면에서 선택한 파일을 Tailcat으로 전송하는 버튼을 USB 복사 버튼 옆에 추가했습니다. 선택 파일 1개는 그대로 보내고, 여러 개를 선택하면 ZIP 하나로 묶어 iPhone Tailcat 수신 페이지로 자동 전송합니다.

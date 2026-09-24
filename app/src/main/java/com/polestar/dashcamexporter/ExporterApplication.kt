@@ -213,18 +213,26 @@ class ExportController(private val app: Application) {
         pendingTailcatItems = items
         lastTailcatAutoAddress = null
         startPhoneServer()
-        try {
-            val carAddr = Tailcatbridge.startAddressExchange(object : AddressCallback {
-                override fun onAddress(addr: String) { handleTailcatAddress(addr) }
-                override fun onError(message: String) { this@ExportController.message("Tailcat address exchange failed: $message") }
-            })
-            mutable.update { it.copy(tailcatControlAddr = carAddr) }
-        } catch (e: Exception) {
-            mutable.update { it.copy(tailcatControlAddr = null) }
-            message("Tailcat address exchange failed: ${e.message}")
-        }
+        mutable.update { it.copy(tailcatControlAddr = null) }
         val label = if (items.size == 1) items.first().name else "${items.size} files"
-        message("Scan the Tailcat QR to send $label.")
+        message("Preparing Tailcat QR for $label.")
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    Tailcatbridge.startAddressExchange(object : AddressCallback {
+                        override fun onAddress(addr: String) { handleTailcatAddress(addr) }
+                        override fun onError(message: String) { this@ExportController.message("Tailcat address exchange failed: $message") }
+                    })
+                }
+            }
+            result.onSuccess { carAddr ->
+                mutable.update { it.copy(tailcatControlAddr = carAddr) }
+                message("Scan the Tailcat QR to send $label.")
+            }.onFailure { e ->
+                mutable.update { it.copy(tailcatControlAddr = null) }
+                message("Tailcat direct setup failed. Using local fallback QR.")
+            }
+        }
     }
 
     private fun handleTailcatAddress(addr: String) {

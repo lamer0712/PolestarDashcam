@@ -27,7 +27,13 @@ var controlMu sync.Mutex
 var controlServer *tailcat.Server
 var controlListener net.Listener
 
-func StartAddressExchange(callback AddressCallback) (string, error) {
+func StartAddressExchange(callback AddressCallback) (addr string, err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            StopAddressExchange()
+            err = fmt.Errorf("tailcat address exchange panic: %v", r)
+        }
+    }()
     StopAddressExchange()
 
     ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
@@ -76,6 +82,7 @@ func StartAddressExchange(callback AddressCallback) (string, error) {
 }
 
 func StopAddressExchange() {
+    defer func() { _ = recover() }()
     controlMu.Lock()
     ln := controlListener
     srv := controlServer
